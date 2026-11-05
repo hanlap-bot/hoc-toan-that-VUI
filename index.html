@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phòng Thí Nghiệm Toán Tư Duy Lớp 2 - Mô Phỏng Thực Tế</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(180deg, #f8fafc 0%, #fef3c7 100%); min-height: 100vh; user-select: none; overflow-x: hidden; }
+    .scale-beam { transition: transform 0.65s cubic-bezier(0.28, 1.35, 0.55, 1); transform-origin: 350px 130px; }
+    .scale-needle { transition: transform 0.65s cubic-bezier(0.28, 1.35, 0.55, 1); transform-origin: 350px 210px; }
+    .pan-hang-left, .pan-hang-right { transition: transform 0.65s cubic-bezier(0.28, 1.35, 0.55, 1); }
+    .bounce-in { animation: bounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes bounceIn { 0% { transform: scale(0.65); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .shake-wrong { animation: shakeWrong 0.42s ease-in-out; }
+    @keyframes shakeWrong { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+    .pulse-ring { animation: pulseRing 2s infinite; }
+    @keyframes pulseRing { 0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); } 50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } }
+    .draggable-item { touch-action: none; cursor: grab; transition: transform 0.15s ease, filter 0.15s ease; }
+    .draggable-item:hover { transform: translateY(-3px) scale(1.03); filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.18)); }
+    .draggable-item:active { cursor: grabbing; }
+    .pan-drop-active { stroke: #10b981 !important; fill: rgba(16, 185, 129, 0.16) !important; stroke-width: 3.5px !important; }
+    .water-fill { transition: height 0.6s cubic-bezier(0.34, 1.4, 0.64, 1); }
+    .jug-card { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+    .jug-card.drop-hover { transform: scale(1.04); border-color: #0284c7 !important; box-shadow: 0 0 0 6px rgba(14, 165, 233, 0.28); }
+    @keyframes grainStream { 0% { stroke-dashoffset: 24; } 100% { stroke-dashoffset: 0; } }
+    .pouring-stream { stroke-dasharray: 4 6; animation: grainStream 0.28s linear infinite; }
+    .op-btn { transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+    .op-btn:active { transform: scale(0.95); }
+  </style>
+</head>
+<body class="text-slate-800 pb-10">
+  <div id="dragGhost" class="fixed pointer-events-none z-50 hidden flex-col items-center justify-center -translate-x-1/2 -translate-y-1/2" style="width: 110px; height: 110px;">
+    <div id="dragGhostSvgWrap" class="w-24 h-24 drop-shadow-2xl transition-transform duration-150"></div>
+    <div class="px-2.5 py-0.5 rounded-full bg-slate-900/90 text-white font-extrabold text-[11px] shadow-lg whitespace-nowrap -mt-1">
+      <span id="dragGhostIcon" class="hidden">⚖️</span>
+      <span id="dragGhostText">Đang kéo...</span>
+    </div>
+  </div>
+
+  <header class="bg-white/95 backdrop-blur border-b border-amber-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center text-lg font-extrabold shadow-sm">⚖️</div>
+        <div>
+          <h1 class="text-sm sm:text-base font-extrabold text-slate-800 leading-tight">Phòng Thí Nghiệm Toán Lớp 2: Cân Robecvan & Đong Nước Thực Tế</h1>
+          <p class="text-[11px] text-slate-500">Đồ vật nằm ngay sát đĩa cân • Kéo thả trực tiếp 1:1 như thật</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button id="btnToggleXray" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition flex items-center gap-1">
+          <span>🔍</span> <span id="xrayLabel">Hiện số kg: BẬT</span>
+        </button>
+        <button id="btnToggleSound" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1">
+          <span id="soundIcon">🔊</span> <span id="soundLabel" class="hidden sm:inline">Âm thanh</span>
+        </button>
+        <button id="btnOpenLevels" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 hover:bg-indigo-200 transition">📚 Đổi dạng bài</button>
+        <button id="btnOpenCustom" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition">⚙️ Tạo đề mới</button>
+        <button id="btnReset" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition">🔄 Chơi lại</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-3 sm:px-4 pt-3 space-y-3">
+    <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200 space-y-2.5">
+      <!-- Đã ẩn thanh levelTabs tại đây theo yêu cầu -->
+
+      <div id="problemHeaderBanner" class="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-3.5 text-white shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div class="space-y-1">
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-black shadow-md border border-rose-400">
+            <span>🎯 MỤC TIÊU:</span>
+            <span id="missionBadgeTarget" class="underline">Lấy đúng 1kg gạo</span>
+          </div>
+          <h2 id="missionTitle" class="text-base sm:text-xl font-black leading-snug text-white drop-shadow-sm">"Có 1 cân hai đĩa, 1 quả cân 2kg và 1 bao gạo 5kg. Làm thế nào để lấy ra đúng 1kg gạo?"</h2>
+        </div>
+        <div id="stepNavBar" class="flex items-center gap-1 bg-white/10 p-1 rounded-xl shrink-0 flex-wrap justify-center">
+          <button id="stepNav1" class="px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold transition bg-amber-400 text-slate-900 shadow">1️⃣ Bước 1: Chọn Đồ Vật</button>
+          <span class="text-white/40 font-bold">→</span>
+          <button id="stepNav2" class="px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold transition text-white/80 hover:bg-white/10">2️⃣ Bước 2: Cân Lần 1</button>
+          <span class="text-white/40 font-bold">→</span>
+          <button id="stepNav3" class="px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold transition text-white/80 hover:bg-white/10">3️⃣ Bước 3: Cân Lần 2</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="viewPlay" class="space-y-3">
+      <section id="step1Section" class="bg-white rounded-3xl p-4 sm:p-5 shadow-sm border-2 border-amber-300 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-extrabold">🕵️‍♂️ BƯỚC 1: NHẶT ĐỒ VẬT CÓ TRONG ĐỀ BÀI</span>
+            <h3 class="text-sm sm:text-base font-extrabold text-slate-800 mt-1">Đề bài đã cho sẵn những đồ vật nào? Bé hãy bấm chọn các thẻ hình ĐÚNG dưới đây!</h3>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="btnAutoSelectStep1" class="px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-xs font-extrabold transition">⚡ Chọn nhanh tất cả đồ vật đúng</button>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 text-center">
+              <div class="text-[10px] font-bold text-emerald-700 uppercase">Đã chọn đúng</div>
+              <div class="text-base font-black text-emerald-800"><span id="foundCorrectCount">0</span>/<span id="totalCorrectCount">5</span></div>
+            </div>
+          </div>
+        </div>
+        <div id="stickerGrid" class="grid grid-cols-2 sm:grid-cols-5 gap-2.5"></div>
+        <div id="stickerFeedbackBox" class="p-3 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center gap-3 transition">
+          <div id="stickerFeedbackIcon" class="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-lg shrink-0">🦉</div>
+          <div class="flex-1">
+            <div id="stickerFeedbackTitle" class="text-xs font-extrabold text-slate-700 uppercase">Cú Mèo hướng dẫn Bước 1</div>
+            <div id="stickerFeedbackText" class="text-xs text-slate-600 font-medium">Chọn đúng thẻ sẽ sáng màu XANH LÁ và bày đồ vật lên mặt bàn gỗ. Chọn nhầm sẽ báo ĐỎ kèm giải thích!</div>
+          </div>
+        </div>
+        <div class="bg-gradient-to-b from-amber-50/70 to-amber-100/50 rounded-2xl p-3.5 border-2 border-dashed border-amber-300 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div id="spawnedPreviewTray" class="flex flex-wrap items-center gap-2.5 min-h-[64px]"></div>
+          <button id="btnGoToStep2" class="px-5 py-3 rounded-2xl font-extrabold text-xs sm:text-sm shadow-md transition flex items-center gap-2 bg-slate-200 text-slate-500 cursor-not-allowed shrink-0" disabled>
+            <span>🔒 Hãy chọn đủ các đồ vật đúng để mở khóa Bước 2</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="stepWeighSection" class="hidden space-y-3">
+        <div class="bg-white rounded-3xl p-3 sm:p-4 shadow-md border-2 border-amber-300 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="currentWeighStepBadge" class="px-3 py-1 rounded-full bg-sky-600 text-white text-xs font-extrabold shadow-sm">BƯỚC 2: CÂN LẦN 1</span>
+              <span id="scaleStatusPill" class="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                <span>⚖️</span> <span id="scaleStatusText">Cân đang thăng bằng (0 kg = 0 kg)</span>
+              </span>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+              <span id="mathEquationBox" class="font-semibold text-slate-600">Đĩa Trái (0kg) = Đĩa Phải (0kg)</span>
+              <span class="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-extrabold">Lần cân: <span id="weighCount">0</span>/<span id="optimalCount">2</span></span>
+            </div>
+          </div>
+          <div id="stepInstructionBanner" class="bg-sky-50 border border-sky-200 rounded-xl px-3 py-2 text-xs text-sky-950 flex flex-wrap items-center justify-between gap-2">
+            <div id="stepInstructionText" class="font-medium">👉 <strong>Kéo thả cực gần:</strong> Cầm <strong>Quả cân 2kg</strong> (ngay dưới gầm đĩa trái) nhấc lên <strong>Đĩa Trái</strong>, rồi cầm <strong>Bao gạo 5kg</strong> (ngay dưới đĩa phải) nhấc lên <strong>Đĩa Phải</strong> để đổ gạo!</div>
+            <div id="activeBagIndicator" class="text-[11px] font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">Bao đang mở: 5kg</div>
+          </div>
+          <div id="scaleStageWrap" class="space-y-2">
+            <div class="relative rounded-2xl overflow-hidden border-2 border-amber-900/20 shadow-inner" style="background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 62%, #b45309 62%, #92400e 70%, #78350f 100%);">
+              <svg id="scaleSvg" viewBox="0 0 700 310" class="w-full h-auto block select-none">
+                <defs>
+                  <linearGradient id="panGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#d97706" /><stop offset="30%" stop-color="#fde047" /><stop offset="65%" stop-color="#f59e0b" /><stop offset="100%" stop-color="#92400e" /></linearGradient>
+                  <linearGradient id="pillarGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#0f172a" /><stop offset="35%" stop-color="#334155" /><stop offset="70%" stop-color="#1e293b" /><stop offset="100%" stop-color="#020617" /></linearGradient>
+                  <linearGradient id="woodGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fef08a" /><stop offset="50%" stop-color="#d97706" /><stop offset="100%" stop-color="#78350f" /></linearGradient>
+                  <linearGradient id="ironWeightGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#1e293b" /><stop offset="40%" stop-color="#64748b" /><stop offset="80%" stop-color="#0f172a" /><stop offset="100%" stop-color="#020617" /></linearGradient>
+                  <linearGradient id="burlapGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fcd34d" /><stop offset="55%" stop-color="#d97706" /><stop offset="100%" stop-color="#92400e" /></linearGradient>
+                </defs>
+                <line x1="60" y1="125" x2="640" y2="125" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,6" opacity="0.65" />
+                <text id="heightDiffLabel" x="350" y="34" text-anchor="middle" font-size="12" font-weight="800" fill="#0369a1">Vạch chuẩn thăng bằng ngang nhau</text>
+                <rect x="0" y="268" width="700" height="42" fill="#92400e" /><rect x="0" y="268" width="700" height="5" fill="#d97706" opacity="0.6" />
+                <ellipse cx="350" cy="276" rx="135" ry="12" fill="rgba(0,0,0,0.35)" />
+                <path d="M 235 272 L 250 244 L 450 244 L 465 272 Z" fill="url(#pillarGrad)" stroke="#fbbf24" stroke-width="1.5" />
+                <rect x="268" y="232" width="164" height="14" rx="5" fill="url(#panGrad)" />
+                <path d="M 322 232 L 332 126 L 368 126 L 378 232 Z" fill="url(#pillarGrad)" stroke="#475569" stroke-width="1.5" />
+                <path d="M 305 152 A 52 52 0 0 1 395 152 L 372 215 L 328 215 Z" fill="#fffbeb" stroke="#d97706" stroke-width="2.5" />
+                <line x1="350" y1="142" x2="350" y2="156" stroke="#16a34a" stroke-width="3" /><line x1="334" y1="144" x2="337" y2="155" stroke="#64748b" stroke-width="1.5" /><line x1="320" y1="149" x2="325" y2="158" stroke="#dc2626" stroke-width="1.5" /><line x1="366" y1="144" x2="363" y2="155" stroke="#64748b" stroke-width="1.5" /><line x1="380" y1="149" x2="375" y2="158" stroke="#dc2626" stroke-width="1.5" />
+                <text x="350" y="137" text-anchor="middle" font-size="10" font-weight="900" fill="#15803d">0</text>
+                <circle cx="350" cy="212" r="16" fill="#1e293b" stroke="#fbbf24" stroke-width="2.5" /><text id="svgSignText" x="350" y="218" text-anchor="middle" font-size="18" font-weight="900" fill="#fde047">=</text>
+                <g id="svgBeamGroup" class="scale-beam">
+                  <path d="M 155 124 L 350 114 L 545 124 L 545 136 L 350 146 L 155 136 Z" fill="url(#woodGrad)" stroke="#78350f" stroke-width="2" />
+                  <rect x="142" y="126" width="16" height="8" rx="3" fill="#475569" /><rect x="542" y="126" width="16" height="8" rx="3" fill="#475569" />
+                  <polygon points="347,130 353,130 350,194" fill="#ef4444" /><circle cx="350" cy="130" r="9" fill="#0f172a" stroke="#fde047" stroke-width="3" />
+                  <g id="svgLeftPan" transform="translate(160, 130)" class="pan-hang-left">
+                    <rect id="dropZoneLeftRect" x="-105" y="-95" width="210" height="145" rx="20" fill="transparent" stroke="transparent" stroke-width="2.5" stroke-dasharray="7,5" />
+                    <rect x="-6" y="-18" width="12" height="22" rx="3" fill="url(#panGrad)" stroke="#78350f" stroke-width="1" /><path d="M -55 -18 L 55 -18 L 40 -10 L -40 -10 Z" fill="#92400e" />
+                    <g id="svgLeftItems" transform="translate(0, -24)"></g>
+                    <ellipse cx="0" cy="-24" rx="86" ry="12" fill="#fef3c7" stroke="#d97706" stroke-width="2" /><path d="M -86 -24 Q 0 2 86 -24 L 72 -8 Q 0 12 -72 -8 Z" fill="url(#panGrad)" stroke="#78350f" stroke-width="1.5" />
+                    <rect x="-58" y="6" width="116" height="22" rx="8" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5" /><text id="svgLeftLabel" x="0" y="21" text-anchor="middle" font-size="11.5" font-weight="900" fill="#ffffff">ĐĨA TRÁI: 0 kg</text>
+                    <text id="svgLeftHeightTag" x="0" y="38" text-anchor="middle" font-size="10.5" font-weight="800" fill="#0369a1"></text>
+                  </g>
+                  <g id="svgRightPan" transform="translate(540, 130)" class="pan-hang-right">
+                    <rect id="dropZoneRightRect" x="-105" y="-95" width="210" height="145" rx="20" fill="transparent" stroke="transparent" stroke-width="2.5" stroke-dasharray="7,5" />
+                    <rect x="-6" y="-18" width="12" height="22" rx="3" fill="url(#panGrad)" stroke="#78350f" stroke-width="1" /><path d="M -55 -18 L 55 -18 L 40 -10 L -40 -10 Z" fill="#92400e" />
+                    <g id="svgRightItems" transform="translate(0, -24)"></g>
+                    <ellipse cx="0" cy="-24" rx="86" ry="12" fill="#fef3c7" stroke="#d97706" stroke-width="2" /><path d="M -86 -24 Q 0 2 86 -24 L 72 -8 Q 0 12 -72 -8 Z" fill="url(#panGrad)" stroke="#78350f" stroke-width="1.5" />
+                    <rect x="-58" y="6" width="116" height="22" rx="8" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5" /><text id="svgRightLabel" x="0" y="21" text-anchor="middle" font-size="11.5" font-weight="900" fill="#ffffff">ĐĨA PHẢI: 0 kg</text>
+                    <text id="svgRightHeightTag" x="0" y="38" text-anchor="middle" font-size="10.5" font-weight="800" fill="#b45309"></text>
+                  </g>
+                </g>
+                <g id="svgPouringEffect" class="hidden"><line id="svgPourStreamLine" x1="540" y1="30" x2="540" y2="105" stroke="#fef08a" stroke-width="7" stroke-linecap="round" class="pouring-stream" /></g>
+              </svg>
+              <div class="bg-gradient-to-b from-amber-900 via-amber-950 to-stone-900 px-3 py-3 border-t-4 border-amber-600/80">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div class="text-xs font-extrabold text-amber-200 flex items-center gap-1.5"><span>🖐️ ĐỒ VẬT ĐẶT NGAY TRÊN MẶT BÀN CÂN:</span><span class="text-amber-400/90 font-normal">(Cầm nhấc thẳng lên Đĩa Trái hoặc Đĩa Phải ngay phía trên!)</span></div>
+                  <div class="flex items-center gap-1.5">
+                    <button id="btnClearScale" class="px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-400/40 text-rose-200 text-xs font-bold hover:bg-rose-500/30 transition">🧹 Bỏ đồ trên cân xuống bàn</button>
+                    <button id="btnCommitWeigh" class="px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg transition flex items-center gap-1 pulse-ring"><span>✅ Chốt Lần Cân Này & Đóng Túi Gạo Mới ➡️</span></button>
+                  </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-black/25 rounded-2xl p-2.5 border border-amber-500/20">
+                  <div class="md:col-span-4 flex flex-wrap items-center justify-center sm:justify-start gap-3 border-b md:border-b-0 md:border-r border-amber-500/20 pb-2 md:pb-0 md:pr-2"><div id="weightsContainer" class="flex flex-wrap items-center gap-2.5"></div></div>
+                  <div class="md:col-span-8 flex flex-wrap items-center justify-center sm:justify-start gap-3"><div id="bagsContainer" class="flex flex-wrap items-center gap-3"></div></div>
+                </div>
+                <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10 text-xs">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-[11px] text-amber-200/80 font-semibold">Thao tác nhanh:</span>
+                    <button id="btnAddLeft1" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/30 font-bold text-[11px] transition">➕ Đổ 1kg vào Đĩa Trái</button>
+                    <button id="btnAddRight1" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/30 font-bold text-[11px] transition">➕ Đổ 1kg vào Đĩa Phải</button>
+                    <button id="btnPourRight" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 font-bold text-[11px] transition">⚡ Đổ tự động cho bằng</button>
+                    <button id="btnSplitEven" class="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-400/30 font-bold text-[11px] transition">⚖️ San đều sang 2 đĩa</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="waterStageWrap" class="hidden space-y-3 pt-1">
+            <div class="rounded-2xl border-2 border-sky-300 bg-gradient-to-b from-sky-50 via-white to-amber-900/10 p-4 space-y-4">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+                <div id="waterTapZone" data-water-zone="tap" class="draggable-item jug-card rounded-2xl border-2 border-sky-300 bg-white p-3 flex flex-col items-center justify-between text-center shadow-sm h-56">
+                  <div class="w-full flex items-center justify-between text-[10px] font-extrabold text-sky-700 uppercase"><span>Vòi nước đồng</span><span class="px-1.5 py-0.5 rounded bg-sky-100">Đầy vòi</span></div>
+                  <svg viewBox="0 0 100 95" class="w-24 h-24"><rect x="8" y="32" width="42" height="16" rx="4" fill="#b45309" stroke="#78350f" stroke-width="2" /><path d="M 45 32 Q 72 32 72 58 L 56 58 Q 56 48 45 48 Z" fill="#f59e0b" stroke="#78350f" stroke-width="2" /><rect x="34" y="18" width="8" height="14" fill="#78350f" /><ellipse cx="38" cy="16" rx="18" ry="5" fill="#ef4444" stroke="#991b1b" stroke-width="2" /><path d="M 59 60 L 69 60 L 72 92 L 56 92 Z" fill="#38bdf8" opacity="0.85" /></svg>
+                  <div><div class="text-xs font-extrabold text-slate-800">Vòi Nước Sạch</div><div class="text-[11px] text-sky-700 font-bold">✋ Kéo Vòi thả ngay vào Can bên cạnh!</div></div>
+                </div>
+                <div id="waterJug5Zone" data-water-zone="jug5" class="draggable-item jug-card rounded-2xl border-2 border-blue-500 bg-white p-3 flex flex-col items-center justify-between text-center shadow-md h-56">
+                  <div class="w-full flex items-center justify-between"><span id="jug5TitleLabel" class="text-xs font-black text-blue-900">CAN 5 LÍT</span><span id="jug5EmptySpaceBadge" class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-extrabold text-[10px]">Trống: 5L</span></div>
+                  <div class="relative flex items-center justify-center my-1">
+                    <div class="w-24 h-32 rounded-b-2xl rounded-t-lg border-4 border-blue-800 bg-sky-50/60 relative overflow-hidden flex flex-col justify-end shadow-inner">
+                      <div class="absolute inset-0 flex flex-col justify-between py-2 px-1.5 pointer-events-none z-10"><div class="border-b border-dashed border-blue-900/30 text-[9px] text-right font-extrabold text-blue-950">4L -</div><div class="border-b border-dashed border-blue-900/30 text-[9px] text-right font-extrabold text-blue-950">3L -</div><div class="border-b border-dashed border-blue-900/30 text-[9px] text-right font-extrabold text-blue-950">2L -</div><div class="border-b border-dashed border-blue-900/30 text-[9px] text-right font-extrabold text-blue-950">1L -</div></div>
+                      <div id="jug5WaterFill" class="water-fill w-full bg-gradient-to-t from-blue-600 via-sky-400 to-cyan-300 relative" style="height: 0%;"><div class="absolute top-0 inset-x-0 h-2 bg-white/60 rounded-full"></div></div>
+                      <div class="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"><span id="jug5LiterText" class="px-2 py-0.5 rounded-lg bg-slate-900/85 text-white font-black text-xs shadow">0 / 5 Lít</span></div>
+                    </div>
+                    <div class="w-4 h-20 border-4 border-l-0 border-blue-800 rounded-r-xl -ml-0.5"></div>
+                  </div>
+                  <div class="text-[11px] font-bold text-blue-800">✋ Kéo Can 5L rót sang Can nhỏ ngay sát bên!</div>
+                </div>
+                <div id="waterJug3Zone" data-water-zone="jug3" class="draggable-item jug-card rounded-2xl border-2 border-cyan-500 bg-white p-3 flex flex-col items-center justify-between text-center shadow-md h-56">
+                  <div class="w-full flex items-center justify-between"><span id="jug3TitleLabel" class="text-xs font-black text-cyan-900">CAN 3 LÍT</span><span id="jug3EmptySpaceBadge" class="px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 font-extrabold text-[10px]">Trống: 3L</span></div>
+                  <div class="relative flex items-center justify-center my-1 pt-6">
+                    <div id="jugSmallInner" class="w-20 h-24 rounded-b-2xl rounded-t-lg border-4 border-cyan-800 bg-cyan-50/60 relative overflow-hidden flex flex-col justify-end shadow-inner">
+                      <div id="jugSmallMarksWrap" class="absolute inset-0 flex flex-col justify-evenly px-1.5 pointer-events-none z-10">
+                        <div id="jugSmallMark1" class="border-b border-dashed border-cyan-900/30 text-[9px] text-right font-extrabold text-cyan-950">2L -</div>
+                        <div id="jugSmallMark2" class="border-b border-dashed border-cyan-900/30 text-[9px] text-right font-extrabold text-cyan-950">1L -</div>
+                      </div>
+                      <div id="jug3WaterFill" class="water-fill w-full bg-gradient-to-t from-cyan-600 via-sky-400 to-teal-200 relative" style="height: 0%;"><div class="absolute top-0 inset-x-0 h-2 bg-white/60 rounded-full"></div></div>
+                      <div class="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"><span id="jug3LiterText" class="px-2 py-0.5 rounded-lg bg-slate-900/85 text-white font-black text-xs shadow">0 / 3 Lít</span></div>
+                    </div>
+                    <div class="w-3.5 h-14 border-4 border-l-0 border-cyan-800 rounded-r-xl -ml-0.5"></div>
+                  </div>
+                  <div class="text-[11px] font-bold text-cyan-800">✋ Kéo Can nhỏ sang Chậu hoặc Can 5L!</div>
+                </div>
+                <div id="waterDrainZone" data-water-zone="drain" class="jug-card rounded-2xl border-2 border-dashed border-rose-400 bg-rose-50/70 p-3 flex flex-col items-center justify-between text-center h-56">
+                  <div class="w-full flex items-center justify-between text-[10px] font-extrabold text-rose-700 uppercase"><span>Chậu thu nước</span><span>Đổ bỏ</span></div>
+                  <svg viewBox="0 0 110 85" class="w-24 h-20"><ellipse cx="55" cy="30" rx="46" ry="12" fill="#cbd5e1" stroke="#475569" stroke-width="2.5" /><path d="M 9 30 L 20 72 Q 55 82 90 72 L 101 30 Q 55 42 9 30 Z" fill="#64748b" stroke="#334155" stroke-width="2.5" /><ellipse cx="55" cy="34" rx="38" ry="7" fill="#38bdf8" opacity="0.55" /></svg>
+                  <div><div class="text-xs font-extrabold text-slate-800">Chậu Thoát Nước</div><div class="text-[11px] text-rose-700 font-bold">📥 Kéo Can thả vào đây để đổ sạch nước!</div></div>
+                </div>
+              </div>
+              <div class="bg-sky-100/80 rounded-xl p-3 border border-sky-200 space-y-2">
+                <div id="waterMathEquation" class="text-xs font-extrabold text-sky-950">Trạng thái hiện tại: Can 5L có <strong>0 lít</strong> • Can 3L có <strong>0 lít</strong></div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                  <button id="btnWaterFill5" class="p-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition">🚰 Đổ đầy Can 5L</button>
+                  <button id="btnWaterFill3" class="p-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm transition">🚰 Đổ đầy Can nhỏ</button>
+                  <button id="btnWaterPour5to3" class="p-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition">➡️ Rót Can 5L sang Can nhỏ</button>
+                  <button id="btnWaterPour3to5" class="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm transition">⬅️ Rót Can nhỏ sang Can 5L</button>
+                  <button id="btnWaterEmpty3" class="p-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 font-bold text-xs transition">🪣 Đổ bỏ Can nhỏ</button>
+                  <button id="btnWaterEmpty5" class="p-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 font-bold text-xs transition">🪣 Đổ bỏ Can 5L</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 pt-1">
+            <div id="coachCard" class="lg:col-span-7 bg-indigo-950 text-white rounded-2xl p-3.5 shadow-sm flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-700 flex items-center justify-center text-xl shrink-0">🦉</div>
+              <div class="space-y-1 flex-1">
+                <div class="flex items-center justify-between"><span class="text-[11px] font-extrabold uppercase tracking-wider text-amber-300">Cú Mèo Thông Thái hướng dẫn</span><button id="btnSmartHint" class="text-[11px] font-bold bg-amber-400 text-slate-900 px-2.5 py-0.5 rounded-lg hover:bg-amber-300 transition">💡 Gợi ý</button></div>
+                <p id="coachText" class="text-xs text-indigo-100 leading-relaxed">Đồ vật đã được đặt ngay dưới gầm đĩa cân! Bé hãy cầm <strong>Quả cân gang 2kg</strong> nhấc lên <strong>Đĩa Trái</strong>, rồi cầm <strong>Bao gạo 5kg</strong> nhấc lên <strong>Đĩa Phải</strong> nhé!</p>
+              </div>
+            </div>
+            <div class="lg:col-span-5 bg-slate-50 rounded-2xl p-3 border border-slate-200 flex flex-col justify-center">
+              <div class="text-xs font-extrabold text-slate-700 mb-1 flex items-center gap-1"><span>📒</span> Nhật ký các lần cân / đong của bé:</div>
+              <div id="historyList" class="space-y-1 text-xs text-slate-600 max-h-24 overflow-y-auto"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="stepWordSection" class="hidden space-y-3">
+        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-3xl p-5 sm:p-6 border-2 border-blue-300 shadow-sm space-y-3">
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-extrabold">📖 ĐỀ BÀI</div>
+          <div id="wordProblemText" class="text-base sm:text-lg font-bold text-slate-800 leading-relaxed"></div>
+        </div>
+        <div class="bg-white rounded-3xl p-4 sm:p-5 border-2 border-amber-300 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-extrabold">📝 TÓM TẮT BẰNG SƠ ĐỒ ĐOẠN THẲNG</div>
+            <button id="btnToggleSummary" class="text-xs font-bold text-amber-700 hover:text-amber-900 px-2 py-1 rounded-lg hover:bg-amber-100 transition">👁️ Ẩn</button>
+          </div>
+          <div id="wordSummaryDiagram" class="space-y-2"></div>
+        </div>
+        <div class="bg-white rounded-3xl p-4 sm:p-5 border-2 border-emerald-300 shadow-sm space-y-4">
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-extrabold">✏️ BÉ GIẢI BÀI TOÁN</div>
+          <div id="wordStepIndicator" class="text-sm sm:text-base font-bold text-slate-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2"></div>
+          <div>
+            <div class="text-xs font-bold text-slate-600 mb-2">1️⃣ Chọn phép tính phù hợp:</div>
+            <div id="wordOpButtons" class="grid grid-cols-2 gap-2"></div>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-600 mb-2">2️⃣ Tính và nhập đáp số:</div>
+            <div class="flex items-center gap-2 flex-wrap justify-center">
+              <input id="wordNum1" type="number" inputmode="numeric" class="text-2xl font-black px-3 py-2 rounded-xl border-2 border-slate-300 focus:border-emerald-500 outline-none w-24 text-center" placeholder="?" />
+              <span id="wordOpSymbol" class="text-2xl font-black text-slate-600">+</span>
+              <input id="wordNum2" type="number" inputmode="numeric" class="text-2xl font-black px-3 py-2 rounded-xl border-2 border-slate-300 focus:border-emerald-500 outline-none w-24 text-center" placeholder="?" />
+              <span class="text-2xl font-black text-slate-600">=</span>
+              <input id="wordNum3" type="number" inputmode="numeric" class="text-2xl font-black px-3 py-2 rounded-xl border-2 border-slate-300 focus:border-emerald-500 outline-none w-24 text-center" placeholder="?" />
+              <span class="text-base font-bold text-slate-500" id="wordUnitLabel"></span>
+            </div>
+          </div>
+          <div class="flex gap-2 pt-1">
+            <button id="btnWordCheck" class="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-sm shadow-md transition">🔍 Kiểm Tra Đáp Số</button>
+            <button id="btnWordSolution" class="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">📖 Xem Lời Giải</button>
+          </div>
+          <div id="wordFeedback" class="hidden p-3 rounded-xl font-bold text-sm"></div>
+          <div id="wordSolutionBox" class="hidden mt-3"></div>
+        </div>
+      </section>
+    </div>
+
+    <div id="viewGuide" class="hidden space-y-4">
+      <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full">Phương pháp Sư phạm Toán Lớp 2</span>
+            <h2 class="text-lg sm:text-xl font-extrabold text-slate-800 mt-1">Giải bài toán: Bao gạo 5kg & Quả cân 2kg → Lấy ra 1kg gạo</h2>
+          </div>
+          <div class="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-2 text-emerald-900 text-xs font-bold shrink-0">✅ Đáp số chuẩn: Cần <span class="text-base font-black underline">2 lần cân</span></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="rounded-2xl border-2 border-sky-200 bg-sky-50/50 p-4 space-y-3 flex flex-col justify-between">
+            <div class="space-y-3">
+              <span class="px-3 py-1 rounded-full bg-sky-600 text-white text-xs font-extrabold inline-block">CÁCH 1: Dùng phép trừ hai lần (5 - 2 = 3, rồi 3 - 2 = 1)</span>
+              <div class="bg-white rounded-xl p-3 border border-sky-100 space-y-1.5 text-xs sm:text-sm"><div class="font-bold text-slate-800">🔹 Bước 2 (Cân lần 1): Tách bao 5kg thành 2kg và 3kg</div><p class="text-slate-600">Đặt <strong>quả cân 2kg</strong> vào Đĩa Trái. Đổ gạo từ <strong>bao 5kg</strong> sang Đĩa Phải (2kg gạo) cho cân thăng bằng. Trong bao còn lại: <strong>5 - 2 = 3kg gạo</strong>.</p></div>
+              <div class="bg-white rounded-xl p-3 border border-sky-100 space-y-1.5 text-xs sm:text-sm"><div class="font-bold text-slate-800">🔹 Bước 3 (Cân lần 2): Lấy túi 3kg đong tiếp 2kg</div><p class="text-slate-600">Đặt <strong>quả cân 2kg</strong> ở Đĩa Trái. Lấy <strong>túi gạo 3kg</strong> đổ sang Đĩa Phải 2kg cho cân bằng. Phần dư lại trong túi chính là: <strong>3 - 2 = 1kg gạo!</strong></p></div>
+            </div>
+            <button id="btnDemoMethod1" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs shadow transition">▶️ Xem Máy Tự Động Làm Mẫu Cách 1</button>
+          </div>
+          <div class="rounded-2xl border-2 border-indigo-200 bg-indigo-50/50 p-4 space-y-3 flex flex-col justify-between">
+            <div class="space-y-3">
+              <span class="px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-extrabold inline-block">CÁCH 2: Đong 2kg rồi chia đôi lên 2 đĩa (2 = 1 + 1)</span>
+              <div class="bg-white rounded-xl p-3 border border-indigo-100 space-y-1.5 text-xs sm:text-sm"><div class="font-bold text-slate-800">🔹 Bước 2 (Cân lần 1): Đong lấy 1 túi gạo 2kg</div><p class="text-slate-600">Đặt <strong>quả cân 2kg</strong> vào Đĩa Trái, đong lấy <strong>2kg gạo</strong> ở Đĩa Phải.</p></div>
+              <div class="bg-white rounded-xl p-3 border border-indigo-100 space-y-1.5 text-xs sm:text-sm"><div class="font-bold text-slate-800">🔹 Bước 3 (Cân lần 2): San đều 2kg sang 2 đĩa cân</div><p class="text-slate-600">Bỏ quả cân 2kg ra ngoài. Đổ <strong>túi gạo 2kg</strong> chia đều vào Đĩa Trái 1kg và Đĩa Phải 1kg cho cân bằng. Mỗi đĩa có đúng <strong>1kg gạo!</strong></p></div>
+            </div>
+            <button id="btnDemoMethod2" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow transition">▶️ Xem Máy Tự Động Làm Mẫu Cách 2</button>
+          </div>
+        </div>
+        <div class="pt-4 border-t border-slate-200 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="px-3 py-1 rounded-full bg-sky-600 text-white text-xs font-extrabold">💧 BÀI TOÁN ĐONG NƯỚC: Can 5 Lít & Can 3 Lít → Đong đúng 4 Lít nước</span>
+            <button id="btnDemoWater" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs shadow transition">▶️ Xem Máy Tự Động Đong 4 Lít Nước</button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs sm:text-sm">
+            <div class="bg-sky-50 rounded-2xl p-3.5 border border-sky-200 space-y-1"><div class="font-extrabold text-sky-900">🔹 Bước 2 (Lần đong 1): Tìm ra 2 lít nước (5 - 3 = 2)</div><p class="text-slate-700">Đổ đầy Can 5 lít, rồi rót sang Can 3 lít cho đầy. Trong Can 5 lít còn lại đúng: <strong>5 - 3 = 2 lít nước!</strong></p></div>
+            <div class="bg-emerald-50 rounded-2xl p-3.5 border border-emerald-200 space-y-1"><div class="font-extrabold text-emerald-900">🔹 Bước 3 (Lần đong 2): Từ 2 lít tạo ra 4 lít (5 - 1 = 4)</div><p class="text-slate-700">Đổ bỏ Can 3 lít, rót 2 lít từ Can 5 lít sang Can 3 lít (Can 3 lít còn trống 1 lít). Đổ đầy Can 5 lít rồi rót thêm 1 lít vào Can 3 lít là còn đúng <strong>4 lít nước!</strong></p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="victoryModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-4 border-amber-400 text-center space-y-4 bounce-in">
+      <div class="text-5xl">🏆🎉</div>
+      <h3 class="text-xl font-black text-slate-800">Hoan hô! Bé đã giải xong bài toán!</h3>
+      <p id="victoryMessage" class="text-sm text-slate-600 leading-relaxed"></p>
+      <div id="victoryFormula" class="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs font-bold text-amber-900 text-left space-y-1"></div>
+      <div class="flex items-center justify-center gap-2 pt-2">
+        <button id="btnCloseVictory" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">Quan sát lại</button>
+        <button id="btnNextLevelModal" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow transition">Sang bài tiếp theo ➡️</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CHỌN DẠNG BÀI -->
+  <div id="levelSelectModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 bounce-in">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-extrabold text-slate-800">📚 Chọn dạng bài tập</h3>
+        <button id="btnCloseLevels" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="levelListGrid">
+        <!-- Generated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TẠO ĐỀ MỚI -->
+  <div id="customModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 bounce-in max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between"><h3 class="text-base font-extrabold text-slate-800">⚙️ Tạo Đề Bài Mới Cho Bé</h3><button id="btnCloseCustom" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button></div>
+      
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Chọn dạng bài tập:</label>
+          <select id="inputProblemType" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800 outline-none focus:border-amber-500">
+            <option value="weigh">⚖️ Cân gạo (Cân Robecvan)</option>
+            <option value="water">💧 Đong nước (Can & Vòi)</option>
+            <option value="word">📚 Toán có lời văn (Tìm số thứ 2)</option>
+          </select>
+        </div>
+
+        <!-- Inputs cho Cân Gạo -->
+        <div id="customWeighInputs" class="space-y-3">
+          <div><label class="font-bold text-slate-700 block mb-1">Khối lượng bao gạo ban đầu (kg):</label><input id="inputBagKg" type="number" min="2" max="50" value="5" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800" /></div>
+          <div><label class="font-bold text-slate-700 block mb-1">Quả cân có sẵn (kg, nhập 0 nếu không có):</label><input id="inputWeightKg" type="number" min="0" max="20" value="2" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800" /></div>
+          <div><label class="font-bold text-slate-700 block mb-1">Mục tiêu cần lấy ra đúng (kg):</label><input id="inputTargetKg" type="number" min="1" max="49" value="1" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800" /></div>
+        </div>
+
+        <!-- Inputs cho Đong Nước -->
+        <div id="customWaterInputs" class="space-y-3 hidden">
+          <div><label class="font-bold text-slate-700 block mb-1">Can lớn (Lít):</label><input id="inputCapBig" type="number" min="2" max="20" value="5" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800" /></div>
+          <div><label class="font-bold text-slate-700 block mb-1">Can nhỏ (Lít):</label><input id="inputCapSmall" type="number" min="1" max="10" value="3" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800" /></div>
+          <div><label class="font-bold text-slate-700 block mb-1">Mục tiêu cần đong đúng (Lít):</label><input id="inputTargetL" type="number" min="1" max="19" value="4" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800" /></div>
+        </div>
+
+        <!-- Inputs cho Toán có lời văn -->
+        <div id="customWordInputs" class="space-y-3 hidden">
+          <div><label class="font-bold text-slate-700 block mb-1">Số liệu đối tượng 1 (Ngày 1 / Lớp 1):</label><input id="inputWordNum1" type="number" min="1" value="24" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800" /></div>
+          <div><label class="font-bold text-slate-700 block mb-1">Số liệu đối tượng 2 (Ngày 2 / Lớp 2):</label><input id="inputWordNum2" type="number" min="1" value="9" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800" /></div>
+          <div><label class="font-bold text-slate-700 block mb-1">Đơn vị (VD: bao gạo, cây, quả...):</label><input id="inputWordUnit" type="text" value="bao gạo" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-800" /></div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="btnCancelCustom" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs">Hủy</button>
+        <button id="btnSaveCustom" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow">✨ Bắt đầu bài toán này</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getRealisticIronWeightSvg(kg, sizeClass = 'w-14 h-14') {
+      return `<svg viewBox="0 0 80 85" class="${sizeClass} select-none"><ellipse cx="40" cy="78" rx="28" ry="5" fill="rgba(0,0,0,0.35)" /><circle cx="40" cy="14" r="9" fill="none" stroke="#94a3b8" stroke-width="5" /><rect x="31" y="19" width="18" height="8" rx="3" fill="#475569" /><path d="M 20 26 L 60 26 L 68 74 Q 40 80 12 74 Z" fill="url(#ironWeightGrad)" stroke="#cbd5e1" stroke-width="1.5" /><path d="M 26 28 L 33 28 L 29 73 L 20 72 Z" fill="rgba(255,255,255,0.18)" /><rect x="22" y="42" width="36" height="20" rx="5" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5" /><text x="40" y="56" text-anchor="middle" font-size="13" font-weight="900" fill="#fde047">${kg}kg</text></svg>`;
+    }
+    function getRealisticRiceSackSvg(kgText, sizeClass = 'w-16 h-16', isTarget = false) {
+      const ribbonColor = isTarget ? '#10b981' : '#dc2626';
+      return `<svg viewBox="0 0 90 95" class="${sizeClass} select-none"><ellipse cx="45" cy="87" rx="34" ry="6" fill="rgba(0,0,0,0.35)" /><path d="M 24 14 Q 45 24 66 14 L 58 28 L 32 28 Z" fill="#b45309" stroke="#78350f" stroke-width="1.5" /><path d="M 28 18 Q 45 4 62 18 Z" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" /><circle cx="39" cy="14" r="2" fill="#cbd5e1" /><circle cx="46" cy="12" r="2" fill="#cbd5e1" /><circle cx="52" cy="15" r="2" fill="#cbd5e1" /><path d="M 30 26 C 10 38, 8 76, 22 84 C 35 89, 55 89, 68 84 C 82 76, 80 38, 60 26 Z" fill="url(#burlapGrad)" stroke="#78350f" stroke-width="2" /><line x1="24" y1="45" x2="66" y2="45" stroke="#78350f" stroke-width="1" stroke-dasharray="3,4" opacity="0.45" /><line x1="20" y1="65" x2="70" y2="65" stroke="#78350f" stroke-width="1" stroke-dasharray="3,4" opacity="0.45" /><rect x="29" y="24" width="32" height="6" rx="3" fill="${ribbonColor}" /><rect x="23" y="44" width="44" height="24" rx="6" fill="#fffbeb" stroke="#92400e" stroke-width="1.5" /><text x="45" y="60" text-anchor="middle" font-size="13" font-weight="900" fill="#78350f">${kgText}</text></svg>`;
+    }
+    function getStickerCustomSvg(stkId, label) {
+      if (stkId.includes('scale')) return `<svg viewBox="0 0 80 60" class="w-14 h-12"><rect x="25" y="48" width="30" height="6" rx="2" fill="#1e293b"/><polygon points="37,48 43,48 41,20 39,20" fill="#475569"/><rect x="14" y="18" width="52" height="4" rx="2" fill="#d97706"/><path d="M 6 34 Q 16 42 26 34 Z" fill="#f59e0b"/><path d="M 54 34 Q 64 42 74 34 Z" fill="#f59e0b"/></svg>`;
+      if (stkId.includes('weight') || stkId.includes('w1') || stkId.includes('w2')) { const m = label.match(/\d+/); return getRealisticIronWeightSvg(m ? m[0] : '2', 'w-12 h-12'); }
+      if (stkId.includes('bag') || stkId.includes('rice') || stkId.includes('target')) { const m = label.match(/\d+/); return getRealisticRiceSackSvg((m ? m[0] : '5') + 'kg', 'w-12 h-12'); }
+      if (stkId.includes('jug')) { const m = label.match(/\d+/); return `<svg viewBox="0 0 70 70" class="w-12 h-12"><rect x="16" y="14" width="32" height="46" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/><path d="M 48 22 L 56 22 L 56 46 L 48 46" fill="none" stroke="#0284c7" stroke-width="3"/><text x="32" y="42" text-anchor="middle" font-size="12" font-weight="900" fill="#0369a1">${m ? m[0] + 'L' : 'Can'}</text></svg>`; }
+      return null;
+    }
+
+    let soundEnabled = true;
+    let audioCtx = null;
+    function initAudio() { if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); } if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
+    function playSound(type) {
+      if (!soundEnabled) return;
+      try {
+        initAudio(); if (!audioCtx) return; const now = audioCtx.currentTime;
+        if (type === 'correct') { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'sine'; o.frequency.setValueAtTime(587.33, now); o.frequency.setValueAtTime(880, now + 0.08); g.gain.setValueAtTime(0.18, now); g.gain.exponentialRampToValueAtTime(0.01, now + 0.24); o.start(now); o.stop(now + 0.24); }
+        else if (type === 'wrong') { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'sawtooth'; o.frequency.setValueAtTime(210, now); o.frequency.linearRampToValueAtTime(145, now + 0.22); g.gain.setValueAtTime(0.15, now); g.gain.exponentialRampToValueAtTime(0.01, now + 0.22); o.start(now); o.stop(now + 0.22); }
+        else if (type === 'clink') { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'triangle'; o.frequency.setValueAtTime(480, now); o.frequency.exponentialRampToValueAtTime(220, now + 0.14); g.gain.setValueAtTime(0.22, now); g.gain.exponentialRampToValueAtTime(0.01, now + 0.14); o.start(now); o.stop(now + 0.14); }
+        else if (type === 'pour') { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'sine'; o.frequency.setValueAtTime(360, now); o.frequency.linearRampToValueAtTime(620, now + 0.18); g.gain.setValueAtTime(0.16, now); g.gain.exponentialRampToValueAtTime(0.01, now + 0.18); o.start(now); o.stop(now + 0.18); }
+        else if (type === 'balance') { [523.25, 659.25, 783.99].forEach((f, i) => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'sine'; o.frequency.setValueAtTime(f, now + i * 0.08); g.gain.setValueAtTime(0.18, now + i * 0.08); g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.22); o.start(now + i * 0.08); o.stop(now + i * 0.08 + 0.22); }); }
+        else if (type === 'win') { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type = 'triangle'; o.frequency.setValueAtTime(f, now + i * 0.11); g.gain.setValueAtTime(0.22, now + i * 0.11); g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.11 + 0.28); o.start(now + i * 0.11); o.stop(now + i * 0.11 + 0.28); }); }
+      } catch (e) {}
+    }
+
+    function buildStickersForLevel(bagKg, weightsInput, targetKg) {
+      const weightsArr = Array.isArray(weightsInput) ? weightsInput : (typeof weightsInput === 'number' && weightsInput > 0 ? [weightsInput] : []);
+      const stickers = [
+        { id: 'stk_balance_scale', label: 'Cân 2 đĩa', icon: '⚖️', correct: true, spawnName: 'Cân 2 đĩa hoàn chỉnh', feedback: 'Đúng rồi! Đề bài cho sẵn 1 chiếc cân hai đĩa.' },
+        { id: 'stk_bag_main', label: `Túi gạo ${bagKg}kg`, icon: '🌾', correct: true, spawnName: `Bao gạo vải bố ${bagKg}kg`, feedback: `Chính xác! Ban đầu đề bài cho sẵn 1 bao gạo ${bagKg}kg.` }
+      ];
+      if (weightsArr.length === 1) stickers.push({ id: 'stk_weight_main', label: `Quả cân ${weightsArr[0]}kg`, icon: '🏋️', correct: true, spawnName: `Quả cân gang ${weightsArr[0]}kg`, feedback: `Chuẩn luôn! Đề bài cho sẵn 1 quả cân gang ${weightsArr[0]}kg.` });
+      else if (weightsArr.length > 1) {
+        const allSame = weightsArr.every((w) => w === weightsArr[0]);
+        const totalKg = weightsArr.reduce((a, b) => a + b, 0);
+        const label = allSame ? `${weightsArr.length} quả cân ${weightsArr[0]}kg` : `Quả cân (${weightsArr.join('kg, ')}kg)`;
+        stickers.push({ id: 'stk_weight_main', label, icon: '🏋️', correct: true, spawnName: allSame ? `${weightsArr.length} quả cân gang ${weightsArr[0]}kg (tổng ${totalKg}kg)` : `${weightsArr.length} quả cân gang (tổng ${totalKg}kg)`, feedback: `Chuẩn luôn! Đề bài cho ${weightsArr.length} quả cân, tổng cộng ${totalKg}kg.` });
+      }
+      stickers.push(
+        { id: 'stk_wrong_target', label: `${targetKg} kg gạo`, icon: '🍚', correct: false, feedback: `Bẫy tư duy! "${targetKg} kg gạo" là KẾT QUẢ bé cần đong ra ở cuối bài, lúc đầu mình chưa có sẵn túi ${targetKg}kg đâu nhé!` },
+        { id: 'stk_wrong_pig', label: 'Con heo', icon: '🐷', correct: false, feedback: 'Haha! Trong đề bài cân gạo không có chú heo ủn ỉn nào đâu bé ơi!' },
+        { id: 'stk_wrong_w1', label: `Quả cân ${targetKg}kg`, icon: '🪨', correct: false, feedback: weightsArr.length > 0 ? `Sai rồi! Đề bài chỉ cho ${weightsArr.length} quả cân có sẵn (${weightsArr.join('kg, ')}kg) thôi, không có sẵn quả cân ${targetKg}kg đâu!` : `Sai rồi! Bài toán này không dùng quả cân nào cả!` },
+        { id: 'stk_wrong_duck', label: 'Con vịt', icon: '🦆', correct: false, feedback: 'Chú vịt kêu cạp cạp không có trong đề bài toán này nhé!' },
+        { id: 'stk_wrong_bag3', label: `Túi gạo ${Math.max(1, bagKg - 2)}kg`, icon: '🛍️', correct: false, feedback: `Lúc đầu chỉ có bao gạo ${bagKg}kg thôi, chưa có sẵn túi ${Math.max(1, bagKg - 2)}kg đâu nhé!` }
+      );
+      const order = [3, 5, 0, 6, 2, 4, 7, 1, 8, 9];
+      return order.filter((idx) => idx < stickers.length).map((idx) => stickers[idx]);
+    }
+
+    const LEVELS = [
+      // ───── BÀI 1-5: GIỮ NGUYÊN 100% ─────
+      { id: 0, title: '"Có 1 cân hai đĩa, 1 quả cân 2kg và 1 bao gạo 5kg. Làm thế nào để lấy ra đúng 1kg gạo?"', targetKg: 1, optimalWeighs: 2, initialBagKg: 5, weights: [2], stickers: buildStickersForLevel(5, 2, 1), hintSteps: ['Ở Cân Lần 1: Bé cầm "Quả cân 2kg" (ngay dưới đĩa trái) nhấc lên Đĩa Trái, rồi cầm "Bao gạo 5kg" nhấc lên Đĩa Phải 2 lần (mỗi lần đổ 1kg gạo). Khi kim cân chỉ đúng số 0 (2kg = 2kg), bấm "Chốt Lần Cân Này"!', 'Ở Cân Lần 2: Cách 1 là nhấc "Quả cân 2kg" lên Đĩa Trái, rồi cầm "Bao gạo 3kg" đổ vào Đĩa Phải 2 lần (2kg). Phần gạo còn dư lại trong bao dưới bàn chính là 3 - 2 = 1kg! (Hoặc Cách 2: Cầm "Túi gạo 2kg" đổ 1kg vào Đĩa Trái và 1kg vào Đĩa Phải).'] },
+      { id: 1, title: '"Có 1 cân hai đĩa và 1 bao gạo 8kg (không có quả cân). Làm thế nào để lấy ra đúng 2kg gạo?"', targetKg: 2, optimalWeighs: 2, initialBagKg: 8, weights: [], stickers: buildStickersForLevel(8, 0, 2), hintSteps: ['Ở Cân Lần 1: Không có quả cân, bé hãy bấm "San đều sang 2 đĩa" (chia bao 8kg thành 4kg = 4kg), rồi bấm "Chốt Lần Cân Này"!', 'Ở Cân Lần 2: Chọn một Túi gạo 4kg rồi chia đều sang 2 đĩa cân (2kg = 2kg), bấm "Chốt Lần Cân Này" là có ngay 2kg gạo!'] },
+      { id: 2, title: '"Có 1 cân hai đĩa, 1 quả cân 2kg và 1 bao gạo 9kg. Làm thế nào để lấy ra đúng 4kg gạo?"', targetKg: 4, optimalWeighs: 2, initialBagKg: 9, weights: [2], stickers: buildStickersForLevel(9, 2, 4), hintSteps: ['Ở Cân Lần 1: Nhấc Quả cân 2kg lên Đĩa Trái, nhấc Bao gạo 9kg đổ vào Đĩa Phải 2kg. Bấm "Chốt Lần Cân Này"!', 'Ở Cân Lần 2: Đặt CẢ Quả cân 2kg VÀ nguyên Túi gạo 2kg vừa đong lên Đĩa Trái (tổng cộng 2 + 2 = 4kg!). Sau đó đổ từ Bao gạo 7kg sang Đĩa Phải 4kg cho thăng bằng!'] },
+      { id: 3, mode: 'water', title: '"Có 1 vòi nước sạch, 1 can 5 lít và 1 can 3 lít (không có vạch chia). Làm thế nào để đong được đúng 4 lít nước?"', targetKg: 4, optimalWeighs: 2, capBig: 5, capSmall: 3, initialBagKg: 5, weights: [], stickers: [{ id: 'stk_w_jug5', label: 'Can rỗng 5 lít', icon: '🫙', correct: true, spawnName: 'Can 5 Lít', feedback: 'Đúng rồi! Đề bài cho sẵn 1 chiếc can 5 lít.' }, { id: 'stk_w_wrong_4l', label: '4 lít nước', icon: '💧', correct: false, feedback: 'Bẫy tư duy! "4 lít nước" là KẾT QUẢ bé cần đong ra ở cuối bài, lúc đầu các can đều đang rỗng nhé!' }, { id: 'stk_w_jug3', label: 'Can rỗng 3 lít', icon: '🫙', correct: true, spawnName: 'Can 3 Lít', feedback: 'Chính xác! Chúng ta có thêm 1 chiếc can 3 lít để đong qua lại.' }, { id: 'stk_w_wrong_fish', label: 'Con cá vàng', icon: '🐠', correct: false, feedback: 'Haha! Trong bài toán đong nước không có chú cá vàng nào đâu bé ơi!' }, { id: 'stk_w_tap', label: 'Vòi nước sạch', icon: '🚰', correct: true, spawnName: 'Vòi nước đồng', feedback: 'Tuyệt vời! Phải có vòi nước thì mình mới lấy nước vào can được chứ!' }, { id: 'stk_w_drain', label: 'Chậu thoát nước', icon: '🪣', correct: true, spawnName: 'Chậu thu nước', feedback: 'Chuẩn luôn! Khi muốn đổ bớt nước đi thì cần có chậu thoát nước.' }, { id: 'stk_w_wrong_jug4', label: 'Can 4 lít', icon: '🧪', correct: false, feedback: 'Sai rồi! Đề bài chỉ cho Can 5 lít và Can 3 lít thôi!' }, { id: 'stk_w_wrong_w2', label: 'Quả cân 2kg', icon: '🏋️', correct: false, feedback: 'Quả cân 2kg là của bài cân gạo, còn bài này mình đong nước bằng lít (L) nhé!' }, { id: 'stk_w_wrong_rice', label: 'Túi gạo 5kg', icon: '🌾', correct: false, feedback: 'Bài này mình đong nước chứ không phải cân gạo bé ơi!' }, { id: 'stk_w_wrong_ruler', label: 'Thước kẻ', icon: '📏', correct: false, feedback: 'Can nước không dùng thước kẻ đo số lít được đâu nhé!' }], hintSteps: ['Bước 2 (Đong Lần 1 - Tìm 2 lít): Bé kéo "Vòi nước" thả vào "Can 5 Lít" (đầy 5L), rồi kéo "Can 5 Lít" thả sang "Can 3 Lít" ngay bên cạnh. Khi đó Can 5 Lít còn lại 5 - 3 = 2 lít nước!', 'Bước 3 (Đong Lần 2 - Tìm 4 lít): (1) Kéo "Can 3 Lít" thả vào "Chậu thoát nước" để đổ bỏ 3L. (2) Kéo "Can 5 Lít (2L)" rót sang "Can 3 Lít" (Can 3L có 2L, còn trống 1L). (3) Kéo "Vòi nước" làm đầy "Can 5 Lít (5L)", rồi kéo "Can 5 Lít" rót sang "Can 3 Lít" thêm 1L nữa là trong Can 5 Lít còn đúng 5 - 1 = 4 lít!'] },
+      { id: 4, mode: 'water', title: '"Có một can 2 lít và một can 5 lít. Làm thế nào để lấy được đúng 1 lít nước từ vòi nước?"', targetKg: 1, optimalWeighs: 2, capBig: 5, capSmall: 2, initialBagKg: 5, weights: [], stickers: [{ id: 'stk_w_jug5', label: 'Can rỗng 5 lít', icon: '🫙', correct: true, spawnName: 'Can 5 Lít', feedback: 'Đúng rồi! Đề bài cho 1 can 5 lít.' }, { id: 'stk_w_wrong_1l', label: '1 lít nước', icon: '💧', correct: false, feedback: 'Bẫy! "1 lít nước" là KẾT QUẢ cần đong ra — ban đầu cả 2 can đều rỗng!' }, { id: 'stk_w_jug2', label: 'Can rỗng 2 lít', icon: '🫙', correct: true, spawnName: 'Can 2 Lít', feedback: 'Chính xác! Có thêm 1 can 2 lít để đong qua lại.' }, { id: 'stk_w_wrong_fish', label: 'Con cá vàng', icon: '🐠', correct: false, feedback: 'Không có chú cá vàng nào trong bài đong nước đâu bé!' }, { id: 'stk_w_tap', label: 'Vòi nước sạch', icon: '🚰', correct: true, spawnName: 'Vòi nước đồng', feedback: 'Tuyệt! Phải có vòi thì mới lấy nước vào can được.' }, { id: 'stk_w_drain', label: 'Chậu thoát nước', icon: '🪣', correct: true, spawnName: 'Chậu thu nước', feedback: 'Chuẩn! Cần chậu để đổ bớt nước đi.' }, { id: 'stk_w_wrong_jug1', label: 'Can 1 lít', icon: '🧪', correct: false, feedback: 'Sai rồi! Đề chỉ cho Can 5L và Can 2L, không có can 1L đâu!' }, { id: 'stk_w_wrong_w2', label: 'Quả cân 2kg', icon: '🏋️', correct: false, feedback: 'Bài này mình đong nước bằng lít (L), không dùng quả cân!' }, { id: 'stk_w_wrong_rice', label: 'Túi gạo 5kg', icon: '🌾', correct: false, feedback: 'Bài này đong nước, không phải cân gạo!' }], hintSteps: ['Bước 2 (Đong 2 lít để hiệu = 3L): Kéo "Vòi nước" thả vào "Can 5 Lít" (đầy 5L), rồi kéo "Can 5 Lít" rót sang "Can 2 Lít" (5L còn 3L, 2L đầy 2L).', 'Bước 3 (Đong 1 lít): Kéo "Can 2 Lít" thả vào "Chậu" để đổ bỏ 2L (Can 5L vẫn còn 3L). Rồi rót từ Can 5L sang Can 2L: Can 5L còn 3 - 2 = 1 lít nước!'] },
+      
+      // ───── BÀI 6-9: WORD MODE ─────
+      { 
+        id: 5, mode: 'word', 
+        title: '"Một cửa hàng ngày thứ nhất bán được 24 bao gạo, ngày thứ hai bán được nhiều hơn ngày thứ nhất 9 bao gạo. Hỏi ngày thứ hai cửa hàng đó bán được bao nhiêu bao gạo?"', 
+        targetKg: 33, optimalWeighs: 1,
+        problemText: `Một cửa hàng <span class="text-blue-700 font-extrabold">ngày thứ nhất</span> bán được <span class="text-red-600 font-extrabold">24 bao gạo</span>, <span class="text-blue-700 font-extrabold">ngày thứ hai</span> bán được <span class="text-blue-700 font-extrabold">nhiều hơn ngày thứ nhất</span> <span class="text-red-600 font-extrabold">9 bao gạo</span>. Hỏi <span class="text-blue-700 font-extrabold">ngày thứ hai</span> cửa hàng đó bán được <span class="text-red-600 font-extrabold">bao nhiêu bao gạo</span>?`,
+        summaryDiagram: `
+          <div class="space-y-3">
+            <div class="flex items-center gap-2">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700">Ngày 1:</div>
+              <div class="flex-1">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2.5 rounded-lg text-center" style="width: 65%;">24 bao</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700">Ngày 2:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2.5 rounded-l-lg text-center" style="width: 65%;">24 bao</div>
+                <div class="bg-amber-100 border-2 border-amber-400 border-dashed text-amber-900 font-black py-2.5 text-center" style="width: 15%;">+9</div>
+                <div class="text-rose-600 font-black text-2xl ml-3">?</div>
+              </div>
+            </div>
+          </div>`,
+        solutionTable: `
+          <div class="bg-white border-2 border-slate-800 p-2 sm:p-4 rounded-lg shadow-sm">
+            <div class="text-base font-extrabold text-slate-800 mb-2">2. Lời giải mẫu chuẩn vở ô ly</div>
+            <div class="grid grid-cols-2 gap-0 border-t-2 border-slate-800">
+              <div class="border-r-2 border-slate-800 p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Tóm tắt</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Ngày thứ nhất: 24 bao gạo</div>
+                  <div>Ngày thứ hai nhiều hơn: 9 bao gạo</div>
+                  <div>Ngày thứ hai: ... bao gạo?</div>
+                </div>
+              </div>
+              <div class="p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Bài giải</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Ngày thứ hai của hàng đó bán được số bao gạo là:</div>
+                  <div class="text-center font-bold">24 + 9 = 33 (bao)</div>
+                  <div class="font-bold">Đáp số: 33 bao gạo.</div>
+                </div>
+              </div>
+            </div>
+          </div>`,
+        subSteps: [{ question: 'Ngày thứ hai cửa hàng bán được bao nhiêu bao gạo?', correctOp: '+', num1: 24, num2: 9, correctAnswer: 33, unit: 'bao gạo', calcHint: '24 + 9 = ?', solutionText: 'Ngày thứ hai bán được: 24 + 9 = 33 (bao gạo)' }] 
+      },
+      { 
+        id: 6, mode: 'word', 
+        title: '"Cũng đề như bài trước: ngày thứ nhất bán 24 bao, ngày thứ hai bán nhiều hơn 9 bao. Hỏi cả hai ngày cửa hàng bán được bao nhiêu bao gạo?"', 
+        targetKg: 57, optimalWeighs: 1,
+        problemText: `Cũng đề như bài trước: <span class="text-blue-700 font-extrabold">ngày thứ nhất</span> bán <span class="text-red-600 font-extrabold">24 bao</span>, <span class="text-blue-700 font-extrabold">ngày thứ hai</span> bán <span class="text-blue-700 font-extrabold">nhiều hơn</span> <span class="text-red-600 font-extrabold">9 bao</span>. Hỏi <span class="text-blue-700 font-extrabold">cả hai ngày</span> cửa hàng bán được <span class="text-red-600 font-extrabold">bao nhiêu bao gạo</span>?`,
+        summaryDiagram: `
+          <div class="space-y-2 w-full">
+            <!-- Row 1 -->
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">Ngày 1:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2 rounded-lg text-center whitespace-nowrap" style="width: 42.105%;">24 bao</div>
+              </div>
+            </div>
+            <!-- Row 2 -->
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">Ngày 2:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2 rounded-l-lg text-center border-r-0 whitespace-nowrap" style="width: 42.105%;">24 bao</div>
+                <div class="bg-amber-100 border-2 border-amber-400 border-dashed text-amber-900 font-black py-2 text-center whitespace-nowrap" style="width: 15.790%;">+9</div>
+                <div class="text-rose-600 font-black text-2xl ml-3">?</div>
+              </div>
+            </div>
+            <!-- Row 3 -->
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">Cả 2 ngày:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-purple-400 border-2 border-purple-500 text-white font-black py-2 rounded-l-lg text-center border-r-0 whitespace-nowrap" style="width: 42.105%;">24 bao</div>
+                <div class="bg-purple-400 border-2 border-purple-500 text-white font-black py-2 text-center border-l-0 border-r-0 whitespace-nowrap" style="width: 42.105%;">24 bao</div>
+                <div class="bg-purple-100 border-2 border-purple-400 border-dashed text-purple-900 font-black py-2 rounded-r-lg text-center whitespace-nowrap" style="width: 15.790%;">+9</div>
+                <div class="text-rose-600 font-black text-2xl ml-3">?</div>
+              </div>
+            </div>
+            <!-- Brackets -->
+            <div class="flex w-full mt-1">
+              <div class="w-24 shrink-0"></div>
+              <div class="flex-1 flex relative h-6">
+                <div class="absolute left-0 border-b-2 border-rose-500 flex justify-center items-end pb-1" style="width: 42.105%;">
+                  <span class="text-[10px] font-bold text-rose-600">Ngày 1</span>
+                </div>
+                <div class="absolute border-b-2 border-rose-500 flex justify-center items-end pb-1" style="left: 42.105%; width: 57.895%;">
+                  <span class="text-[10px] font-bold text-rose-600">Ngày 2</span>
+                </div>
+              </div>
+              <div class="ml-3 w-6 shrink-0"></div>
+            </div>
+          </div>`,
+        solutionTable: `
+          <div class="bg-white border-2 border-slate-800 p-2 sm:p-4 rounded-lg shadow-sm">
+            <div class="text-base font-extrabold text-slate-800 mb-2">2. Lời giải mẫu chuẩn vở ô ly</div>
+            <div class="grid grid-cols-2 gap-0 border-t-2 border-slate-800">
+              <div class="border-r-2 border-slate-800 p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Tóm tắt</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Ngày thứ nhất: 24 bao gạo</div>
+                  <div>Ngày thứ hai nhiều hơn: 9 bao gạo</div>
+                  <div>Cả hai ngày: ... bao gạo?</div>
+                </div>
+              </div>
+              <div class="p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Bài giải</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Ngày thứ hai của hàng đó bán được số bao gạo là:</div>
+                  <div class="text-center font-bold">24 + 9 = 33 (bao)</div>
+                  <div>Cả hai ngày cửa hàng bán được số bao gạo là:</div>
+                  <div class="text-center font-bold">24 + 33 = 57 (bao)</div>
+                  <div class="font-bold">Đáp số: 57 bao gạo.</div>
+                </div>
+              </div>
+            </div>
+          </div>`,
+        subSteps: [
+          { question: 'Trước tiên, ngày thứ hai bán được bao nhiêu bao gạo?', correctOp: '+', num1: 24, num2: 9, correctAnswer: 33, unit: 'bao gạo', calcHint: '24 + 9 = ?', solutionText: 'Ngày thứ hai bán được: 24 + 9 = 33 (bao gạo)' },
+          { question: 'Bây giờ, cả hai ngày bán được bao nhiêu bao gạo?', correctOp: '+', num1: 24, num2: 33, correctAnswer: 57, unit: 'bao gạo', calcHint: '24 + 33 = ?', solutionText: 'Cả hai ngày bán được: 24 + 33 = 57 (bao gạo)' }
+        ] 
+      },
+      { 
+        id: 7, mode: 'word', 
+        title: '"Nhà trường giao cho lớp 2A10 chăm sóc 36 cây. Lớp 2A13 được nhà trường giao cho chăm sóc số cây nhiều hơn lớp 2A10 là 7 cây. Hỏi cả hai lớp được nhà trường giao cho chăm sóc bao nhiêu cây?"', 
+        targetKg: 79, optimalWeighs: 1,
+        problemText: `Nhà trường giao cho <span class="text-blue-700 font-extrabold">lớp 2A10</span> chăm sóc <span class="text-red-600 font-extrabold">36 cây</span>. <span class="text-blue-700 font-extrabold">Lớp 2A13</span> được nhà trường giao cho chăm sóc <span class="text-blue-700 font-extrabold">số cây nhiều hơn lớp 2A10 là</span> <span class="text-red-600 font-extrabold">7 cây</span>. Hỏi <span class="text-blue-700 font-extrabold">cả hai lớp</span> được nhà trường giao cho chăm sóc <span class="text-red-600 font-extrabold">bao nhiêu cây</span>?`,
+        summaryDiagram: `
+          <div class="space-y-2 w-full">
+            <!-- Row 1 -->
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">2A10:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2 rounded-lg text-center whitespace-nowrap" style="width: 45.570%;">36 cây</div>
+              </div>
+            </div>
+            <!-- Row 2 -->
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">2A13:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2 rounded-l-lg text-center border-r-0 whitespace-nowrap" style="width: 45.570%;">36 cây</div>
+                <div class="bg-amber-100 border-2 border-amber-400 border-dashed text-amber-900 font-black py-2 text-center whitespace-nowrap" style="width: 8.860%;">+7</div>
+                <div class="text-rose-600 font-black text-2xl ml-3">?</div>
+              </div>
+            </div>
+            <!-- Row 3 -->
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">Cả 2 lớp:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-purple-400 border-2 border-purple-500 text-white font-black py-2 rounded-l-lg text-center border-r-0 whitespace-nowrap" style="width: 45.570%;">36 cây</div>
+                <div class="bg-purple-400 border-2 border-purple-500 text-white font-black py-2 text-center border-l-0 border-r-0 whitespace-nowrap" style="width: 45.570%;">36 cây</div>
+                <div class="bg-purple-100 border-2 border-purple-400 border-dashed text-purple-900 font-black py-2 rounded-r-lg text-center whitespace-nowrap" style="width: 8.860%;">+7</div>
+                <div class="text-rose-600 font-black text-2xl ml-3">?</div>
+              </div>
+            </div>
+            <!-- Brackets -->
+            <div class="flex w-full mt-1">
+              <div class="w-24 shrink-0"></div>
+              <div class="flex-1 flex relative h-6">
+                <div class="absolute left-0 border-b-2 border-rose-500 flex justify-center items-end pb-1" style="width: 45.570%;">
+                  <span class="text-[10px] font-bold text-rose-600">Lớp 2A10</span>
+                </div>
+                <div class="absolute border-b-2 border-rose-500 flex justify-center items-end pb-1" style="left: 45.570%; width: 54.430%;">
+                  <span class="text-[10px] font-bold text-rose-600">Lớp 2A13</span>
+                </div>
+              </div>
+              <div class="ml-3 w-6 shrink-0"></div>
+            </div>
+          </div>`,
+        solutionTable: `
+          <div class="bg-white border-2 border-slate-800 p-2 sm:p-4 rounded-lg shadow-sm">
+            <div class="text-base font-extrabold text-slate-800 mb-2">2. Lời giải mẫu chuẩn vở ô ly</div>
+            <div class="grid grid-cols-2 gap-0 border-t-2 border-slate-800">
+              <div class="border-r-2 border-slate-800 p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Tóm tắt</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Lớp 2A10: 36 cây</div>
+                  <div>Lớp 2A13 nhiều hơn: 7 cây</div>
+                  <div>Cả hai lớp: ... cây?</div>
+                </div>
+              </div>
+              <div class="p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Bài giải</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Lớp 2A13 được giao số cây là:</div>
+                  <div class="text-center font-bold">36 + 7 = 43 (cây)</div>
+                  <div>Cả hai lớp được giao số cây là:</div>
+                  <div class="text-center font-bold">36 + 43 = 79 (cây)</div>
+                  <div class="font-bold">Đáp số: 79 cây.</div>
+                </div>
+              </div>
+            </div>
+          </div>`,
+        subSteps: [
+          { question: 'Trước tiên, lớp 2A13 được giao chăm sóc bao nhiêu cây?', correctOp: '+', num1: 36, num2: 7, correctAnswer: 43, unit: 'cây', calcHint: '36 + 7 = ?', solutionText: 'Lớp 2A13 được giao: 36 + 7 = 43 (cây)' },
+          { question: 'Bây giờ, cả hai lớp được giao chăm sóc bao nhiêu cây?', correctOp: '+', num1: 36, num2: 43, correctAnswer: 79, unit: 'cây', calcHint: '36 + 43 = ?', solutionText: 'Cả hai lớp được giao: 36 + 43 = 79 (cây)' }
+        ] 
+      },
+      { 
+        id: 8, mode: 'word', 
+        title: '"Tổng của hai số là 58. Nếu tăng một số hạng thêm 7 đơn vị và giữ nguyên số hạng kia thì tổng mới là bao nhiêu?"', 
+        targetKg: 65, optimalWeighs: 1,
+        problemText: `Tổng của hai số là <span class="text-red-600 font-extrabold">58</span>. Nếu <span class="text-blue-700 font-extrabold">tăng một số hạng thêm</span> <span class="text-red-600 font-extrabold">7 đơn vị</span> và <span class="text-blue-700 font-extrabold">giữ nguyên số hạng kia</span> thì <span class="text-red-600 font-extrabold">tổng mới là bao nhiêu</span>?`,
+        summaryDiagram: `
+          <div class="space-y-2 w-full">
+            <!-- Row 1 -->
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">Tổng cũ:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2 rounded-l-lg text-center border-r-0 whitespace-nowrap" style="width: 45%;">Số hạng 1</div>
+                <div class="bg-indigo-400 border-2 border-indigo-500 text-white font-black py-2 rounded-r-lg text-center border-l-0 whitespace-nowrap" style="width: 45%;">Số hạng 2</div>
+                <div class="text-rose-600 font-black text-xl ml-3 whitespace-nowrap flex items-center">= 58</div>
+              </div>
+            </div>
+            <!-- Row 2 -->
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">Tổng mới:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2 rounded-l-lg text-center border-r-0 whitespace-nowrap" style="width: 45%;">Số hạng 1</div>
+                <div class="bg-amber-100 border-2 border-amber-400 border-dashed text-amber-900 font-black py-2 text-center whitespace-nowrap" style="width: 10%;">+7</div>
+                <div class="bg-indigo-400 border-2 border-indigo-500 text-white font-black py-2 rounded-r-lg text-center border-l-0 whitespace-nowrap" style="width: 45%;">Số hạng 2</div>
+                <div class="text-rose-600 font-black text-xl ml-3 whitespace-nowrap flex items-center">= ?</div>
+              </div>
+            </div>
+          </div>`,
+        solutionTable: `
+          <div class="bg-white border-2 border-slate-800 p-2 sm:p-4 rounded-lg shadow-sm">
+            <div class="text-base font-extrabold text-slate-800 mb-2">2. Lời giải mẫu chuẩn vở ô ly</div>
+            <div class="grid grid-cols-2 gap-0 border-t-2 border-slate-800">
+              <div class="border-r-2 border-slate-800 p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Tóm tắt</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Tổng hai số: 58</div>
+                  <div>Tăng số hạng thứ nhất: 7 đơn vị</div>
+                  <div>Tổng mới: ... ?</div>
+                </div>
+              </div>
+              <div class="p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Bài giải</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Khi tăng một số hạng thêm 7 đơn vị và giữ nguyên số hạng kia thì tổng mới tăng thêm 7 đơn vị.</div>
+                  <div>Tổng mới là:</div>
+                  <div class="text-center font-bold">58 + 7 = 65</div>
+                  <div class="font-bold">Đáp số: 65</div>
+                </div>
+              </div>
+            </div>
+          </div>`,
+        subSteps: [{ question: 'Tổng mới là bao nhiêu?', correctOp: '+', num1: 58, num2: 7, correctAnswer: 65, unit: 'đơn vị', calcHint: '58 + 7 = ?', solutionText: 'Tổng mới là: 58 + 7 = 65 (đơn vị)' }] 
+      }
+    ];
+
+    // ───── HÀM TẠO ĐỀ BÀI ĐỘNG CHO CUSTOM MODAL ─────
+    function generateWordLevel(num1, num2, unit) {
+      num1 = parseInt(num1) || 24;
+      num2 = parseInt(num2) || 9;
+      const totalStep1 = num1 + num2;
+      const totalStep2 = num1 + totalStep1;
+      const totalWidth = num1 + totalStep1;
+      const w1 = (num1 / totalWidth) * 100;
+      const w2 = (totalStep1 / totalWidth) * 100;
+      
+      return {
+        id: Date.now(), mode: 'word',
+        title: `"Một cửa hàng ngày thứ nhất bán được ${num1} ${unit}, ngày thứ hai bán được nhiều hơn ngày thứ nhất ${num2} ${unit}. Hỏi cả hai ngày cửa hàng đó bán được bao nhiêu ${unit}?"`,
+        targetKg: totalStep2, optimalWeighs: 1,
+        problemText: `Một cửa hàng <span class="text-blue-700 font-extrabold">ngày thứ nhất</span> bán được <span class="text-red-600 font-extrabold">${num1} ${unit}</span>, <span class="text-blue-700 font-extrabold">ngày thứ hai</span> bán được <span class="text-blue-700 font-extrabold">nhiều hơn ngày thứ nhất</span> <span class="text-red-600 font-extrabold">${num2} ${unit}</span>. Hỏi <span class="text-blue-700 font-extrabold">cả hai ngày</span> cửa hàng đó bán được <span class="text-red-600 font-extrabold">bao nhiêu ${unit}</span>?`,
+        summaryDiagram: `
+          <div class="space-y-2 w-full">
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">Ngày 1:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2 rounded-lg text-center whitespace-nowrap" style="width: ${w1}%;">${num1} ${unit}</div>
+              </div>
+            </div>
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">Ngày 2:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-sky-400 border-2 border-sky-500 text-white font-black py-2 rounded-l-lg text-center border-r-0 whitespace-nowrap" style="width: ${w1}%;">${num1} ${unit}</div>
+                <div class="bg-amber-100 border-2 border-amber-400 border-dashed text-amber-900 font-black py-2 text-center whitespace-nowrap" style="width: ${w2}%;">+${num2}</div>
+                <div class="text-rose-600 font-black text-2xl ml-3">?</div>
+              </div>
+            </div>
+            <div class="flex w-full items-center">
+              <div class="w-24 shrink-0 text-right font-extrabold text-slate-700 pr-2">Cả 2 ngày:</div>
+              <div class="flex-1 flex items-center">
+                <div class="bg-purple-400 border-2 border-purple-500 text-white font-black py-2 rounded-l-lg text-center border-r-0 whitespace-nowrap" style="width: ${w1}%;">${num1} ${unit}</div>
+                <div class="bg-purple-400 border-2 border-purple-500 text-white font-black py-2 text-center border-l-0 border-r-0 whitespace-nowrap" style="width: ${w1}%;">${num1} ${unit}</div>
+                <div class="bg-purple-100 border-2 border-purple-400 border-dashed text-purple-900 font-black py-2 rounded-r-lg text-center whitespace-nowrap" style="width: ${w2}%;">+${num2}</div>
+                <div class="text-rose-600 font-black text-2xl ml-3">?</div>
+              </div>
+            </div>
+            <div class="flex w-full mt-1">
+              <div class="w-24 shrink-0"></div>
+              <div class="flex-1 flex relative h-6">
+                <div class="absolute left-0 border-b-2 border-rose-500 flex justify-center items-end pb-1" style="width: ${w1}%;">
+                  <span class="text-[10px] font-bold text-rose-600">Ngày 1</span>
+                </div>
+                <div class="absolute border-b-2 border-rose-500 flex justify-center items-end pb-1" style="left: ${w1}%; width: ${100 - w1}%;">
+                  <span class="text-[10px] font-bold text-rose-600">Ngày 2</span>
+                </div>
+              </div>
+              <div class="ml-3 w-6 shrink-0"></div>
+            </div>
+          </div>`,
+        solutionTable: `
+          <div class="bg-white border-2 border-slate-800 p-2 sm:p-4 rounded-lg shadow-sm">
+            <div class="text-base font-extrabold text-slate-800 mb-2">2. Lời giải mẫu chuẩn vở ô ly</div>
+            <div class="grid grid-cols-2 gap-0 border-t-2 border-slate-800">
+              <div class="border-r-2 border-slate-800 p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Tóm tắt</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Ngày thứ nhất: ${num1} ${unit}</div>
+                  <div>Ngày thứ hai nhiều hơn: ${num2} ${unit}</div>
+                  <div>Cả hai ngày: ... ${unit}?</div>
+                </div>
+              </div>
+              <div class="p-2">
+                <div class="font-bold text-sm border-b border-slate-400 pb-1 mb-2">Bài giải</div>
+                <div class="text-xs sm:text-sm space-y-2 font-medium">
+                  <div>Ngày thứ hai cửa hàng bán được số ${unit} là:</div>
+                  <div class="text-center font-bold">${num1} + ${num2} = ${totalStep1} (${unit})</div>
+                  <div>Cả hai ngày cửa hàng bán được số ${unit} là:</div>
+                  <div class="text-center font-bold">${num1} + ${totalStep1} = ${totalStep2} (${unit})</div>
+                  <div class="font-bold">Đáp số: ${totalStep2} ${unit}.</div>
+                </div>
+              </div>
+            </div>
+          </div>`,
+        subSteps: [
+          { question: `Trước tiên, ngày thứ hai bán được bao nhiêu ${unit}?`, correctOp: '+', num1: num1, num2: num2, correctAnswer: totalStep1, unit: unit, calcHint: `${num1} + ${num2} = ?`, solutionText: `Ngày thứ hai bán được: ${num1} + ${num2} = ${totalStep1} (${unit})` },
+          { question: `Bây giờ, cả hai ngày bán được bao nhiêu ${unit}?`, correctOp: '+', num1: num1, num2: totalStep1, correctAnswer: totalStep2, unit: unit, calcHint: `${num1} + ${totalStep1} = ?`, solutionText: `Cả hai ngày bán được: ${num1} + ${totalStep1} = ${totalStep2} (${unit})` }
+        ]
+      };
+    }
+
+    function generateWaterLevel(capBig, capSmall, target) {
+      capBig = parseInt(capBig) || 5;
+      capSmall = parseInt(capSmall) || 3;
+      target = parseInt(target) || 4;
+      return {
+        id: Date.now(), mode: 'water',
+        title: `"Có một can ${capBig} lít và một can ${capSmall} lít. Làm thế nào để lấy được đúng ${target} lít nước từ vòi nước?"`,
+        targetKg: target, optimalWeighs: 2, capBig: capBig, capSmall: capSmall, initialBagKg: capBig, weights: [],
+        stickers: [{ id: 'stk_w_jug5', label: `Can rỗng ${capBig} lít`, icon: '🫙', correct: true, spawnName: `Can ${capBig} Lít`, feedback: `Đúng rồi! Đề bài cho 1 can ${capBig} lít.` }, { id: 'stk_w_wrong_target', label: `${target} lít nước`, icon: '💧', correct: false, feedback: `Bẫy! "${target} lít nước" là KẾT QUẢ cần đong ra — ban đầu cả 2 can đều rỗng!` }, { id: 'stk_w_jug3', label: `Can rỗng ${capSmall} lít`, icon: '🫙', correct: true, spawnName: `Can ${capSmall} Lít`, feedback: `Chính xác! Có thêm 1 can ${capSmall} lít để đong qua lại.` }, { id: 'stk_w_wrong_fish', label: 'Con cá vàng', icon: '🐠', correct: false, feedback: 'Không có chú cá vàng nào trong bài đong nước đâu bé!' }, { id: 'stk_w_tap', label: 'Vòi nước sạch', icon: '🚰', correct: true, spawnName: 'Vòi nước đồng', feedback: 'Tuyệt! Phải có vòi thì mới lấy nước vào can được.' }, { id: 'stk_w_drain', label: 'Chậu thoát nước', icon: '🪣', correct: true, spawnName: 'Chậu thu nước', feedback: 'Chuẩn! Cần chậu để đổ bớt nước đi.' }, { id: 'stk_w_wrong_jug1', label: 'Can 1 lít', icon: '🧪', correct: false, feedback: 'Sai rồi! Đề chỉ cho Can lớn và Can nhỏ, không có can 1L đâu!' }, { id: 'stk_w_wrong_w2', label: 'Quả cân 2kg', icon: '🏋️', correct: false, feedback: 'Bài này mình đong nước bằng lít (L), không dùng quả cân!' }, { id: 'stk_w_wrong_rice', label: 'Túi gạo 5kg', icon: '🌾', correct: false, feedback: 'Bài này đong nước, không phải cân gạo!' }],
+        hintSteps: [`Bước 2 (Đong nước lần 1): Kéo "Vòi nước" thả vào "Can ${capBig} Lít" (đầy ${capBig}L), rồi kéo "Can ${capBig} Lít" rót sang "Can ${capSmall} Lít".`, `Bước 3 (Đong nước lần 2): Kéo "Can ${capSmall} Lít" thả vào "Chậu" để đổ bỏ. Rồi rót từ Can ${capBig}L sang Can ${capSmall}L, bơm đầy Can ${capBig}L rồi rót thêm cho đầy Can ${capSmall}L để lấy đúng ${target} lít.`]
+      };
+    }
+
+    function generateWeighLevel(bagKg, weightKg, targetKg) {
+      bagKg = parseInt(bagKg) || 5;
+      weightKg = parseInt(weightKg) || 0;
+      targetKg = parseInt(targetKg) || 1;
+      return {
+        id: Date.now(), mode: 'weigh',
+        title: `"Có 1 cân hai đĩa${weightKg > 0 ? `, 1 quả cân ${weightKg}kg` : ''} và 1 bao gạo ${bagKg}kg. Làm thế nào để lấy ra đúng ${targetKg}kg gạo?"`,
+        targetKg: targetKg, optimalWeighs: 2, initialBagKg: bagKg, weights: weightKg > 0 ? [weightKg] : [],
+        stickers: buildStickersForLevel(bagKg, weightKg, targetKg),
+        hintSteps: [`Hãy kéo quả cân và bao gạo ${bagKg}kg ngay dưới gầm đĩa cân để tách ra túi gạo ${targetKg}kg nhé!`]
+      };
+    }
+
+    let currentLevelIdx = 0;
+    let xrayMode = true;
+    let state = { currentStep: 1, selectedStickers: {}, weights: [], bags: [], selectedBagId: null, leftLooseRice: 0, rightLooseRice: 0, weighCount: 0, history: [], won: false, jugBig: 0, jugSmall: 0, waterMilestone2L: false, word: null };
+
+    function roundKg(val) { return Math.round(val * 100) / 100; }
+
+    function triggerPouringStreamAnimation(side) {
+      const grp = document.getElementById('svgPouringEffect');
+      const line = document.getElementById('svgPourStreamLine');
+      if (!grp || !line) return;
+      const x = side === 'left' ? 160 : 540;
+      line.setAttribute('x1', x); line.setAttribute('x2', x);
+      grp.classList.remove('hidden');
+      setTimeout(() => { grp.classList.add('hidden'); }, 420);
+    }
+
+    function initLevel(idx) {
+      if (typeof demoTimer !== 'undefined' && demoTimer) { clearTimeout(demoTimer); demoTimer = null; }
+      if (typeof activeDrag !== 'undefined' && activeDrag) { const ghost = document.getElementById('dragGhost'); if (ghost) { ghost.classList.add('hidden'); ghost.classList.remove('flex'); } activeDrag = null; }
+
+      currentLevelIdx = idx;
+      const lvl = LEVELS[idx];
+      state.currentStep = 1;
+      state.selectedStickers = {};
+      state.weights = lvl.weights ? lvl.weights.map((kg, i) => ({ id: 'w_' + i, kg: kg, location: 'table' })) : [];
+      state.bags = lvl.mode !== 'word' ? [{ id: 'bag_1', name: `Bao gạo ${lvl.initialBagKg || 5}kg`, kg: lvl.initialBagKg || 5, location: 'table' }] : [];
+      state.selectedBagId = state.bags[0]?.id || null;
+      state.leftLooseRice = 0; state.rightLooseRice = 0;
+      state.weighCount = 0; state.history = []; state.won = false;
+      state.jugBig = 0; state.jugSmall = 0; state.waterMilestone2L = false;
+      state.word = { subStepIndex: 0, currentOp: null, num1: '', num2: '', currentAnswer: '', solvedSubSteps: [], showSolution: false, showSummary: true };
+
+      if (lvl.mode === 'word') {
+        document.getElementById('problemHeaderBanner').style.display = 'none'; // Ẩn banner đen khi là Word Mode
+      } else {
+        document.getElementById('problemHeaderBanner').style.display = 'flex';
+        if (lvl.mode === 'water') {
+          document.getElementById('missionBadgeTarget').textContent = `Đong đúng ${lvl.targetKg} lít nước`;
+        } else {
+          document.getElementById('missionBadgeTarget').textContent = `Lấy đúng ${lvl.targetKg}kg gạo`;
+        }
+      }
+      document.getElementById('missionTitle').textContent = lvl.title;
+      document.getElementById('optimalCount').textContent = lvl.optimalWeighs || 1;
+
+      document.querySelectorAll('.level-tab').forEach((btn) => {
+        const bIdx = parseInt(btn.getAttribute('data-level'), 10);
+        if (bIdx === idx) {
+          if (idx >= 5) btn.className = 'level-tab px-3 py-1.5 rounded-xl text-xs font-bold transition bg-purple-600 text-white shadow-sm';
+          else if (idx === 4) btn.className = 'level-tab px-3 py-1.5 rounded-xl text-xs font-bold transition bg-sky-600 text-white shadow-sm';
+          else btn.className = 'level-tab px-3 py-1.5 rounded-xl text-xs font-bold transition bg-amber-500 text-white shadow-sm';
+        } else {
+          if (bIdx >= 5) btn.className = 'level-tab px-3 py-1.5 rounded-xl text-xs font-bold transition bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-200';
+          else if (bIdx === 4) btn.className = 'level-tab px-3 py-1.5 rounded-xl text-xs font-bold transition bg-sky-100 text-sky-800 border border-sky-300 hover:bg-sky-200';
+          else if (bIdx === 3) btn.className = 'level-tab px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 text-slate-700 hover:bg-slate-200';
+          else btn.className = 'level-tab px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 text-slate-700 hover:bg-slate-200';
+        }
+      });
+
+      document.getElementById('stickerFeedbackBox').className = 'p-3 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center gap-3 transition';
+      document.getElementById('stickerFeedbackIcon').textContent = '🦉';
+      document.getElementById('stickerFeedbackTitle').textContent = 'Cú Mèo hướng dẫn Bước 1';
+      document.getElementById('stickerFeedbackText').textContent = 'Bé hãy bấm chọn các thẻ đồ vật ĐÚNG có trong đề bài (hoặc bấm "Chọn nhanh tất cả đồ vật đúng" để vào thẳng bàn cân thực tế)!';
+
+      renderAll();
+    }
+
+    function handleStickerClick(sticker) {
+      if (state.selectedStickers[sticker.id]) {
+        delete state.selectedStickers[sticker.id];
+        playSound('clink');
+        const box = document.getElementById('stickerFeedbackBox');
+        box.className = 'p-3 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center gap-3 transition';
+        document.getElementById('stickerFeedbackIcon').textContent = '🦉';
+        document.getElementById('stickerFeedbackTitle').textContent = 'Đã bỏ chọn — Cú Mèo hướng dẫn Bước 1';
+        document.getElementById('stickerFeedbackText').textContent = 'Bé có thể chọn lại thẻ khác.';
+        renderStep1();
+        return;
+      }
+      if (sticker.correct) {
+        state.selectedStickers[sticker.id] = 'correct';
+        playSound('correct');
+        const box = document.getElementById('stickerFeedbackBox');
+        box.className = 'p-3 rounded-2xl border-2 border-emerald-400 bg-emerald-50 flex items-center gap-3 transition bounce-in';
+        document.getElementById('stickerFeedbackIcon').textContent = '✅';
+        document.getElementById('stickerFeedbackTitle').textContent = `ĐÚNG RỒI: ${sticker.label.toUpperCase()}`;
+        document.getElementById('stickerFeedbackText').textContent = sticker.feedback;
+      } else {
+        state.selectedStickers[sticker.id] = 'wrong';
+        playSound('wrong');
+        const box = document.getElementById('stickerFeedbackBox');
+        box.className = 'p-3 rounded-2xl border-2 border-rose-400 bg-rose-50 flex items-center gap-3 transition shake-wrong';
+        document.getElementById('stickerFeedbackIcon').textContent = '❌';
+        document.getElementById('stickerFeedbackTitle').textContent = `CHƯA ĐÚNG: ${sticker.label.toUpperCase()}`;
+        document.getElementById('stickerFeedbackText').textContent = sticker.feedback;
+      }
+      renderStep1();
+    }
+
+    function autoCompleteStep1() {
+      const lvl = LEVELS[currentLevelIdx];
+      lvl.stickers.forEach((s) => { if (s.correct) state.selectedStickers[s.id] = 'correct'; });
+      playSound('balance');
+      renderStep1();
+    }
+    function goToStep(stepNum) { state.currentStep = stepNum; playSound('clink'); renderAll(); }
+
+    function renderStep1() {
+      const lvl = LEVELS[currentLevelIdx];
+      const grid = document.getElementById('stickerGrid');
+      grid.innerHTML = '';
+      const correctStickers = lvl.stickers.filter((s) => s.correct);
+      const foundCorrect = correctStickers.filter((s) => state.selectedStickers[s.id] === 'correct').length;
+      document.getElementById('foundCorrectCount').textContent = foundCorrect;
+      document.getElementById('totalCorrectCount').textContent = correctStickers.length;
+
+      lvl.stickers.forEach((stk) => {
+        const status = state.selectedStickers[stk.id];
+        const btn = document.createElement('button');
+        let cardStyle = 'bg-white border-2 border-slate-200 hover:border-amber-400 text-slate-800 shadow-sm';
+        let badgeHtml = '<span class="text-[10px] font-bold text-slate-400">Bấm chọn</span>';
+        if (status === 'correct') { cardStyle = 'bg-emerald-50 border-2 border-emerald-500 text-emerald-950 shadow-md scale-[1.02]'; badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold">✓ ĐÚNG RỒI</span>'; }
+        else if (status === 'wrong') { cardStyle = 'bg-rose-50 border-2 border-rose-500 text-rose-950 shadow-md shake-wrong'; badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-extrabold">✕ SAI RỒI</span>'; }
+        const customSvg = getStickerCustomSvg(stk.id, stk.label);
+        const visualHtml = customSvg ? `<div class="h-12 flex items-center justify-center">${customSvg}</div>` : `<div class="h-12 flex items-center justify-center text-3xl">${stk.icon}</div>`;
+        btn.className = `p-2.5 rounded-2xl transition flex flex-col items-center justify-between gap-1 text-center ${cardStyle}`;
+        btn.innerHTML = `${visualHtml}<div class="text-xs font-extrabold leading-tight">${stk.label}</div>${badgeHtml}`;
+        btn.addEventListener('click', () => handleStickerClick(stk));
+        grid.appendChild(btn);
+      });
+
+      const tray = document.getElementById('spawnedPreviewTray');
+      tray.innerHTML = '';
+      const pickedCorrect = correctStickers.filter((s) => state.selectedStickers[s.id] === 'correct');
+      if (pickedCorrect.length === 0) { tray.innerHTML = `<div class="text-xs text-amber-900/70 italic">✨ Đồ vật bé chọn đúng sẽ hiện ra tại đây để chuẩn bị đưa lên bàn cân thực tế...</div>`; }
+      else { pickedCorrect.forEach((stk) => { const item = document.createElement('div'); item.className = 'px-3 py-1.5 rounded-xl bg-white border-2 border-emerald-500 shadow-sm flex items-center gap-2 bounce-in'; const miniSvg = getStickerCustomSvg(stk.id, stk.label); item.innerHTML = `${miniSvg ? `<div class="w-8 h-8 flex items-center justify-center">${miniSvg}</div>` : `<span class="text-xl">${stk.icon}</span>`}<div class="text-xs font-extrabold text-slate-800">${stk.spawnName}</div>`; tray.appendChild(item); }); }
+
+      const btnNext = document.getElementById('btnGoToStep2');
+      if (foundCorrect === correctStickers.length) {
+        btnNext.disabled = false;
+        btnNext.className = 'px-5 py-3 rounded-2xl font-extrabold text-xs sm:text-sm shadow-lg transition flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer pulse-ring bounce-in shrink-0';
+        btnNext.innerHTML = '<span>🚀 Đã đủ đồ vật! Mở Bàn Cân Thực Tế (Bước 2) ➡️</span>';
+      } else {
+        btnNext.disabled = true;
+        btnNext.className = 'px-5 py-3 rounded-2xl font-extrabold text-xs sm:text-sm shadow transition flex items-center gap-2 bg-slate-200 text-slate-500 cursor-not-allowed shrink-0';
+        btnNext.innerHTML = `<span>🔒 Chọn thêm ${correctStickers.length - foundCorrect} đồ vật đúng nữa để sang Bước 2</span>`;
+      }
+    }
+
+    function getPanTotals() {
+      let leftKg = state.leftLooseRice, rightKg = state.rightLooseRice;
+      state.weights.forEach((w) => { if (w.location === 'left') leftKg += w.kg; if (w.location === 'right') rightKg += w.kg; });
+      state.bags.forEach((b) => { if (b.location === 'left') leftKg += b.kg; if (b.location === 'right') rightKg += b.kg; });
+      return { leftKg: roundKg(leftKg), rightKg: roundKg(rightKg) };
+    }
+    function getSelectedBag() { return state.bags.find((b) => b.id === state.selectedBagId && b.location === 'table') || state.bags.find((b) => b.location === 'table' && b.kg > 0) || null; }
+
+    function handleItemDropOnTarget(dragPayload, targetZone) {
+      if (!dragPayload) return;
+      if (dragPayload.type === 'weight') {
+        const w = state.weights.find((item) => item.id === dragPayload.id); if (!w) return;
+        w.location = targetZone; playSound('clink');
+        const zoneName = targetZone === 'left' ? 'Đĩa Trái' : targetZone === 'right' ? 'Đĩa Phải' : 'Mặt bàn gỗ';
+        setCoachMessage(`🏋️ Bé vừa đặt <strong>Quả cân gang ${w.kg}kg</strong> lên <strong>${zoneName}</strong>! Hãy nhìn kim đồng hồ và đòn cân nghiêng xuống kìa!`);
+        renderAll();
+      } else if (dragPayload.type === 'bag') {
+        const b = state.bags.find((item) => item.id === dragPayload.id); if (!b) return;
+        state.selectedBagId = b.id;
+        if (targetZone === 'table') { b.location = 'table'; playSound('clink'); renderAll(); return; }
+        if (b.kg <= 0) { setCoachMessage('⚠️ Bao gạo này đã đổ hết sạch gạo lên đĩa cân rồi!'); return; }
+        const pourAmount = Math.min(1, b.kg);
+        b.kg = roundKg(b.kg - pourAmount);
+        if (targetZone === 'left') state.leftLooseRice = roundKg(state.leftLooseRice + pourAmount);
+        else state.rightLooseRice = roundKg(state.rightLooseRice + pourAmount);
+        triggerPouringStreamAnimation(targetZone);
+        const { leftKg, rightKg } = getPanTotals();
+        if (leftKg === rightKg && leftKg > 0) { playSound('balance'); setCoachMessage(`🎉 <strong>KIM CÂN CHỈ ĐÚNG SỐ 0 (${leftKg}kg = ${rightKg}kg)!</strong> Hai đĩa cân đã cao bằng nhau. Trong bao dưới bàn còn lại <strong>${b.kg}kg</strong>. Hãy bấm nút màu xanh <strong>"Chốt Lần Cân Này"</strong>!`); }
+        else { playSound('pour'); const diffDesc = leftKg > rightKg ? `Đĩa Trái (${leftKg}kg) vẫn thấp hơn Đĩa Phải (${rightKg}kg). Bé hãy nhấc bao gạo đổ thêm vào Đĩa Phải nhé!` : `Đĩa Phải (${rightKg}kg) đang thấp hơn Đĩa Trái (${leftKg}kg).`; setCoachMessage(`🌾 Đã đổ <strong>${pourAmount}kg gạo</strong> lên ${targetZone === 'left' ? 'Đĩa Trái' : 'Đĩa Phải'} (bao dưới bàn còn ${b.kg}kg). ${diffDesc}`); }
+        renderAll();
+      } else if (dragPayload.type === 'panRice') {
+        const fromSide = dragPayload.side;
+        const looseAmount = fromSide === 'left' ? state.leftLooseRice : state.rightLooseRice;
+        if (looseAmount <= 0) return;
+        if (targetZone === 'table') {
+          const bag = getSelectedBag();
+          if (bag) bag.kg = roundKg(bag.kg + looseAmount);
+          else state.bags.push({ id: 'bag_' + Date.now(), name: `Bao gạo ${looseAmount}kg`, kg: looseAmount, location: 'table' });
+          if (fromSide === 'left') state.leftLooseRice = 0; else state.rightLooseRice = 0;
+          playSound('clink'); setCoachMessage('🧹 Đã trút gạo từ trên đĩa cân về lại bao dưới bàn.');
+        } else if (targetZone !== fromSide) {
+          const moveKg = Math.min(1, looseAmount);
+          if (fromSide === 'left') { state.leftLooseRice = roundKg(state.leftLooseRice - moveKg); state.rightLooseRice = roundKg(state.rightLooseRice + moveKg); }
+          else { state.rightLooseRice = roundKg(state.rightLooseRice - moveKg); state.leftLooseRice = roundKg(state.leftLooseRice + moveKg); }
+          triggerPouringStreamAnimation(targetZone); playSound('pour'); setCoachMessage(`🌾 Đã san <strong>${moveKg}kg gạo</strong> sang đĩa cân bên kia!`);
+        }
+        renderAll();
+      }
+    }
+
+    function performWaterAction(action) {
+      const lvl = LEVELS[currentLevelIdx];
+      if (lvl.mode !== 'water') return;
+      const capBig = lvl.capBig || 5;
+      const capSmall = lvl.capSmall || 3;
+      let desc = '';
+
+      if (action === 'fillBig') {
+        if (state.jugBig === capBig) { setCoachMessage(`⚠️ Can ${capBig} Lít đã đầy (${capBig}L) rồi!`); return; }
+        state.jugBig = capBig; playSound('pour');
+        desc = `🚰 Bơm đầy Can ${capBig}L → Can ${capBig}L: ${state.jugBig}L, Can ${capSmall}L: ${state.jugSmall}L`;
+        setCoachMessage(`🚰 Đã mở vòi bơm đầy <strong>Can ${capBig} Lít (${capBig}L)</strong>! Bây giờ bé hãy cầm <strong>Can ${capBig} Lít</strong> kéo sang <strong>Can ${capSmall} Lít</strong> ngay bên cạnh nhé!`);
+      } else if (action === 'fillSmall') {
+        if (state.jugSmall === capSmall) { setCoachMessage(`⚠️ Can ${capSmall} Lít đã đầy (${capSmall}L) rồi!`); return; }
+        state.jugSmall = capSmall; playSound('pour');
+        desc = `🚰 Bơm đầy Can ${capSmall}L → Can ${capBig}L: ${state.jugBig}L, Can ${capSmall}L: ${state.jugSmall}L`;
+        setCoachMessage(`🚰 Đã bơm đầy <strong>Can ${capSmall} Lít (${capSmall}L)</strong>.`);
+      } else if (action === 'emptyBig') {
+        if (state.jugBig === 0) return; state.jugBig = 0; playSound('clink');
+        desc = `🪣 Đổ bỏ Can ${capBig}L → Can ${capBig}L: 0L, Can ${capSmall}L: ${state.jugSmall}L`;
+        setCoachMessage(`🪣 Đã đổ sạch nước trong <strong>Can ${capBig} Lít</strong> vào chậu.`);
+      } else if (action === 'emptySmall') {
+        if (state.jugSmall === 0) return; state.jugSmall = 0; playSound('clink');
+        desc = `🪣 Đổ bỏ Can ${capSmall}L → Can ${capBig}L: ${state.jugBig}L, Can ${capSmall}L: 0L`;
+        setCoachMessage(state.jugBig === 2 ? `🪣 Đã đổ trống <strong>Can ${capSmall} Lít (0L)</strong>! Bây giờ bé hãy kéo <strong>Can ${capBig} Lít (đang có 2L)</strong> rót sang <strong>Can ${capSmall} Lít</strong> nhé!` : `🪣 Đã đổ hết nước trong <strong>Can ${capSmall} Lít</strong> ra chậu.`);
+      } else if (action === 'pourBigToSmall') {
+        if (state.jugBig === 0) { setCoachMessage(`⚠️ Can ${capBig} Lít đang rỗng (0L)! Hãy kéo Vòi nước vào Can ${capBig} Lít trước nhé.`); return; }
+        if (state.jugSmall === capSmall) { setCoachMessage(`⚠️ Can ${capSmall} Lít đã đầy (${capSmall}L)! Hãy kéo Can ${capSmall} Lít vào Chậu bên phải để đổ bỏ trước nhé!`); return; }
+        const spaceInSmall = capSmall - state.jugSmall;
+        const poured = Math.min(state.jugBig, spaceInSmall);
+        const beforeBig = state.jugBig;
+        state.jugBig -= poured; state.jugSmall += poured;
+        desc = `🫙 Rót ${poured}L từ Can ${capBig}L sang Can ${capSmall}L (${beforeBig} - ${poured} = ${state.jugBig}L)`;
+        if (lvl.id === 3 && state.jugBig === 2 && !state.waterMilestone2L) {
+          state.waterMilestone2L = true; state.weighCount = 1; state.currentStep = 3; playSound('balance');
+          setCoachMessage(`🎉 <strong>XONG BƯỚC 2 (LẦN ĐONG 1): ${beforeBig} - ${poured} = 2 LÍT!</strong> Trong Can 5 Lít còn đúng <strong>2 lít nước</strong>! Sang <strong>Bước 3</strong>: Kéo <strong>Can 3 Lít</strong> thả vào <strong>Chậu 🪣</strong> bên phải để đổ bỏ 3L đi nhé!`);
+        } else if (state.jugSmall === 2 && state.jugBig === 0) {
+          playSound('pour');
+          setCoachMessage(`✨ Hay quá! Can nhỏ hiện có <strong>2 lít</strong> (chỉ còn trống đúng <strong>${capSmall} - 2 lít</strong>!). Bây giờ kéo <strong>Vòi nước</strong> bơm đầy <strong>Can 5 Lít</strong> rồi rót thêm sang Can nhỏ nhé!`);
+        } else {
+          playSound('pour');
+          setCoachMessage(`🫙 Đã rót <strong>${poured} lít</strong> từ Can ${capBig}L sang Can ${capSmall}L.`);
+        }
+      } else if (action === 'pourSmallToBig') {
+        if (state.jugSmall === 0 || state.jugBig === capBig) return;
+        const poured = Math.min(state.jugSmall, capBig - state.jugBig);
+        state.jugSmall -= poured; state.jugBig += poured;
+        playSound('pour');
+        desc = `🫙 Rót ${poured}L từ Can ${capSmall}L sang Can ${capBig}L`;
+      }
+      if (desc) state.history.push({ step: state.history.length + 1, summary: desc });
+
+      if (Math.abs(state.jugBig - lvl.targetKg) < 0.05 || Math.abs(state.jugSmall - lvl.targetKg) < 0.05) {
+        state.weighCount = 2; state.won = true; playSound('win');
+        setCoachMessage(`🏆 <strong>HOÀN THÀNH XUẤT SẮC!</strong> Bé đã đong được đúng <strong>${lvl.targetKg} lít nước</strong>!`);
+        const modal = document.getElementById('victoryModal');
+        document.getElementById('victoryMessage').innerHTML = `Qua các thao tác rót nước trực quan giữa Can ${capBig} lít và Can ${capSmall} lít, bé đã thu được đúng <strong>${lvl.targetKg} lít nước</strong>!`;
+        document.getElementById('victoryFormula').innerHTML = state.history.map((h) => `<div>✔ ${h.summary}</div>`).join('');
+        modal.classList.remove('hidden'); modal.classList.add('flex');
+      }
+      renderAll();
+    }
+
+    let activeDrag = null;
+    function getDragGhostGraphic(payload, labelText) {
+      if (payload.type === 'weight') { const w = state.weights.find((x) => x.id === payload.id); return getRealisticIronWeightSvg(w ? w.kg : 2, 'w-20 h-20'); }
+      if (payload.type === 'bag' || payload.type === 'panRice') { return `<div class="-rotate-12">${getRealisticRiceSackSvg('Đổ gạo', 'w-20 h-20')}</div>`; }
+      if (payload.waterSource === 'tap') { return `<svg viewBox="0 0 100 95" class="w-20 h-20"><rect x="8" y="32" width="42" height="16" rx="4" fill="#b45309"/><path d="M 45 32 Q 72 32 72 58 L 56 58 Q 56 48 45 48 Z" fill="#f59e0b"/><ellipse cx="38" cy="16" rx="18" ry="5" fill="#ef4444"/><path d="M 59 60 L 69 60 L 72 92 L 56 92 Z" fill="#38bdf8"/></svg>`; }
+      if (payload.waterSource === 'jug5' || payload.waterSource === 'jug3') { return `<div class="rotate-12"><svg viewBox="0 0 70 70" class="w-20 h-20"><rect x="14" y="12" width="36" height="48" rx="8" fill="#38bdf8" stroke="#0369a1" stroke-width="3"/><text x="32" y="42" text-anchor="middle" font-size="12" font-weight="900" fill="#ffffff">${labelText}</text></svg></div>`; }
+      return '';
+    }
+    function attachDragBehavior(element, payload, labelText, iconText) {
+      element.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button[data-no-drag]')) return;
+        e.preventDefault();
+        activeDrag = { payload, labelText, iconText, startX: e.clientX, startY: e.clientY, moved: false };
+        const ghost = document.getElementById('dragGhost');
+        document.getElementById('dragGhostIcon').textContent = iconText;
+        document.getElementById('dragGhostText').textContent = labelText;
+        document.getElementById('dragGhostSvgWrap').innerHTML = getDragGhostGraphic(payload, labelText);
+        ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
+        ghost.classList.remove('hidden'); ghost.classList.add('flex');
+        highlightDropZones(e.clientX, e.clientY);
+      });
+    }
+    function getDropZoneAtPoint(clientX, clientY) {
+      const lvl = LEVELS[currentLevelIdx];
+      if (lvl && lvl.mode === 'water') { const waterZones = ['waterTapZone', 'waterJug5Zone', 'waterJug3Zone', 'waterDrainZone']; for (const zId of waterZones) { const el = document.getElementById(zId); if (!el) continue; const r = el.getBoundingClientRect(); if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) return el.getAttribute('data-water-zone'); } return null; }
+      const svgEl = document.getElementById('scaleSvg'); if (!svgEl) return null;
+      const rect = svgEl.getBoundingClientRect();
+      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top - 20 && clientY <= rect.bottom + 10) { const relX = (clientX - rect.left) / rect.width; const relY = (clientY - rect.top) / rect.height; if (relY <= 0.88) { if (relX < 0.46) return 'left'; if (relX > 0.54) return 'right'; } }
+      if (clientY > rect.bottom - 35) return 'table';
+      return null;
+    }
+    function highlightDropZones(clientX, clientY) {
+      const zone = getDropZoneAtPoint(clientX, clientY);
+      const lvl = LEVELS[currentLevelIdx];
+      if (lvl && lvl.mode === 'water') { ['waterTapZone', 'waterJug5Zone', 'waterJug3Zone', 'waterDrainZone'].forEach((zId) => { const el = document.getElementById(zId); if (!el) return; if (el.getAttribute('data-water-zone') === zone) el.classList.add('drop-hover'); else el.classList.remove('drop-hover'); }); return; }
+      const leftRect = document.getElementById('dropZoneLeftRect'); const rightRect = document.getElementById('dropZoneRightRect');
+      if (!leftRect || !rightRect) return;
+      leftRect.setAttribute('class', zone === 'left' ? 'pan-drop-active' : ''); rightRect.setAttribute('class', zone === 'right' ? 'pan-drop-active' : '');
+      if (zone !== 'left') { leftRect.setAttribute('stroke', '#38bdf8'); leftRect.setAttribute('fill', 'rgba(56, 189, 248, 0.06)'); }
+      if (zone !== 'right') { rightRect.setAttribute('stroke', '#fbbf24'); rightRect.setAttribute('fill', 'rgba(251, 191, 36, 0.06)'); }
+    }
+
+    window.addEventListener('pointermove', (e) => {
+      if (!activeDrag) return;
+      const dx = e.clientX - activeDrag.startX; const dy = e.clientY - activeDrag.startY;
+      if (Math.hypot(dx, dy) > 6) activeDrag.moved = true;
+      const ghost = document.getElementById('dragGhost'); ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
+      highlightDropZones(e.clientX, e.clientY);
+    });
+    window.addEventListener('pointerup', (e) => {
+      if (!activeDrag) return;
+      const ghost = document.getElementById('dragGhost'); ghost.classList.add('hidden'); ghost.classList.remove('flex');
+      const leftRect = document.getElementById('dropZoneLeftRect'); const rightRect = document.getElementById('dropZoneRightRect');
+      if (leftRect) { leftRect.setAttribute('class', ''); leftRect.setAttribute('stroke', 'transparent'); leftRect.setAttribute('fill', 'transparent'); }
+      if (rightRect) { rightRect.setAttribute('class', ''); rightRect.setAttribute('stroke', 'transparent'); rightRect.setAttribute('fill', 'transparent'); }
+      ['waterTapZone', 'waterJug5Zone', 'waterJug3Zone', 'waterDrainZone'].forEach((zId) => { const el = document.getElementById(zId); if (el) el.classList.remove('drop-hover'); });
+      const zone = getDropZoneAtPoint(e.clientX, e.clientY);
+      const lvl = LEVELS[currentLevelIdx];
+      if (lvl && lvl.mode === 'water') {
+        if (zone) {
+          const src = activeDrag.payload.waterSource;
+          if (src === 'tap' && zone === 'jug5') performWaterAction('fillBig');
+          else if (src === 'tap' && zone === 'jug3') performWaterAction('fillSmall');
+          else if (src === 'jug5' && zone === 'tap') performWaterAction('fillBig');
+          else if (src === 'jug3' && zone === 'tap') performWaterAction('fillSmall');
+          else if (src === 'jug5' && zone === 'jug3') performWaterAction('pourBigToSmall');
+          else if (src === 'jug3' && zone === 'jug5') performWaterAction('pourSmallToBig');
+          else if (src === 'jug5' && zone === 'drain') performWaterAction('emptyBig');
+          else if (src === 'jug3' && zone === 'drain') performWaterAction('emptySmall');
+        }
+      } else {
+        if (zone && activeDrag.moved) handleItemDropOnTarget(activeDrag.payload, zone);
+        else if (!activeDrag.moved) { if (activeDrag.payload.type === 'weight') cycleWeightLocation(activeDrag.payload.id); else if (activeDrag.payload.type === 'bag') handleItemDropOnTarget(activeDrag.payload, 'right'); }
+      }
+      activeDrag = null;
+    });
+
+    function cycleWeightLocation(weightId) { const w = state.weights.find((item) => item.id === weightId); if (!w) return; const nextLoc = w.location === 'table' ? 'left' : w.location === 'left' ? 'right' : 'table'; handleItemDropOnTarget({ type: 'weight', id: weightId }, nextLoc); }
+    function pourToBalance(targetSide) {
+      const bag = getSelectedBag(); if (!bag || bag.kg <= 0) { setCoachMessage('⚠️ Bao gạo đang chọn đã hết gạo! Hãy chọn bao gạo khác dưới bàn nhé.'); return; }
+      const { leftKg, rightKg } = getPanTotals();
+      if (targetSide === 'right') { const needed = roundKg(leftKg - rightKg); const amount = needed > 0 ? Math.min(needed, bag.kg) : Math.min(1, bag.kg); bag.kg = roundKg(bag.kg - amount); state.rightLooseRice = roundKg(state.rightLooseRice + amount); triggerPouringStreamAnimation('right'); }
+      else { const needed = roundKg(rightKg - leftKg); const amount = needed > 0 ? Math.min(needed, bag.kg) : Math.min(1, bag.kg); bag.kg = roundKg(bag.kg - amount); state.leftLooseRice = roundKg(state.leftLooseRice + amount); triggerPouringStreamAnimation('left'); }
+      playSound('balance'); renderAll();
+    }
+    function splitRiceEvenly() {
+      const bag = getSelectedBag(); const availableRice = roundKg(state.leftLooseRice + state.rightLooseRice + (bag ? bag.kg : 0));
+      if (availableRice <= 0) { setCoachMessage('⚠️ Hãy chọn một bao gạo dưới bàn trước khi bấm "San đều sang 2 đĩa" nhé!'); return; }
+      let leftWeights = 0, rightWeights = 0;
+      state.weights.forEach((w) => { if (w.location === 'left') leftWeights += w.kg; if (w.location === 'right') rightWeights += w.kg; });
+      state.bags.forEach((b) => { if (b.location === 'left') leftWeights += b.kg; if (b.location === 'right') rightWeights += b.kg; });
+      const totalMass = roundKg(availableRice + leftWeights + rightWeights); const halfMass = roundKg(totalMass / 2);
+      if (halfMass < leftWeights || halfMass < rightWeights) { setCoachMessage('⚠️ Lượng gạo không đủ để cân bằng với quả cân bên kia!'); return; }
+      if (bag) bag.kg = 0; state.leftLooseRice = roundKg(halfMass - leftWeights); state.rightLooseRice = roundKg(halfMass - rightWeights);
+      playSound('balance'); setCoachMessage(`⚖️ Đã san đều gạo lên 2 đĩa cân: Đĩa Trái <strong>${state.leftLooseRice}kg</strong> = Đĩa Phải <strong>${state.rightLooseRice}kg</strong>! Bấm <strong>"Chốt Lần Cân Này"</strong> nhé!`);
+      renderAll();
+    }
+    function addStepRice(side, stepKg) {
+      const bag = getSelectedBag(); if (!bag || bag.kg <= 0) { setCoachMessage('⚠️ Bao gạo đang mở đã hết gạo rồi!'); return; }
+      const amount = Math.min(stepKg, bag.kg); bag.kg = roundKg(bag.kg - amount);
+      if (side === 'left') state.leftLooseRice = roundKg(state.leftLooseRice + amount); else state.rightLooseRice = roundKg(state.rightLooseRice + amount);
+      triggerPouringStreamAnimation(side);
+      const { leftKg, rightKg } = getPanTotals(); playSound(leftKg === rightKg && leftKg > 0 ? 'balance' : 'pour');
+      renderAll();
+    }
+    function clearScaleToTable() {
+      const looseTotal = roundKg(state.leftLooseRice + state.rightLooseRice);
+      if (looseTotal > 0) { const bag = getSelectedBag(); if (bag) bag.kg = roundKg(bag.kg + looseTotal); else state.bags.push({ id: 'bag_' + Date.now(), name: `Bao gạo ${looseTotal}kg`, kg: looseTotal, location: 'table' }); }
+      state.leftLooseRice = 0; state.rightLooseRice = 0;
+      state.weights.forEach((w) => (w.location = 'table')); state.bags.forEach((b) => (b.location = 'table'));
+      playSound('clink'); setCoachMessage('🧹 Đã hạ quả cân và trút gạo trên 2 đĩa về lại mặt bàn.');
+      renderAll();
+    }
+    function commitWeighing() {
+      const { leftKg, rightKg } = getPanTotals();
+      if (leftKg === 0 && rightKg === 0) { setCoachMessage('⚠️ Hai đĩa cân đang trống! Bé hãy nhấc quả cân và bao gạo ngay dưới mặt bàn lên đĩa cân nhé.'); return; }
+      if (leftKg !== rightKg) { playSound('wrong'); setCoachMessage(`⚠️ Kim cân đang lệch (Đĩa Trái ${leftKg}kg ≠ Đĩa Phải ${rightKg}kg)! Chỉ khi kim cân chỉ đúng vạch số 0 ở giữa (hai đĩa cao bằng nhau) mới chốt được nhé!`); return; }
+      if (state.leftLooseRice === 0 && state.rightLooseRice === 0) { setCoachMessage('⚠️ Bé chưa đổ gạo lên đĩa cân!'); return; }
+      state.weighCount += 1;
+      if (state.leftLooseRice > 0) state.bags.push({ id: 'bag_L_' + state.weighCount + '_' + Date.now(), name: `Túi gạo ${state.leftLooseRice}kg (Lần ${state.weighCount})`, kg: state.leftLooseRice, location: 'table' });
+      if (state.rightLooseRice > 0) state.bags.push({ id: 'bag_R_' + state.weighCount + '_' + (Date.now() + 1), name: `Túi gạo ${state.rightLooseRice}kg (Lần ${state.weighCount})`, kg: state.rightLooseRice, location: 'table' });
+      state.bags = state.bags.filter((b) => b.kg > 0).map((b) => ({ ...b, name: b.name.includes('Lần') ? b.name : `Bao còn lại (${b.kg}kg)`, location: 'table' }));
+      state.leftLooseRice = 0; state.rightLooseRice = 0; state.weights.forEach((w) => (w.location = 'table'));
+      const sorted = [...state.bags].sort((a, b) => b.kg - a.kg); if (sorted.length > 0) state.selectedBagId = sorted[0].id;
+      const bagSnapshot = state.bags.map((b) => `${b.kg}kg`).join(', ');
+      state.history.push({ step: state.weighCount, summary: `Lần cân ${state.weighCount}: Thăng bằng ${leftKg}kg = ${rightKg}kg → Trên bàn có các bao: [${bagSnapshot}]` });
+      const lvl = LEVELS[currentLevelIdx];
+      const winningBag = state.bags.find((b) => Math.abs(b.kg - lvl.targetKg) < 0.02);
+      if (winningBag) { state.won = true; playSound('win'); setCoachMessage(`🎉 <strong>HOÀN THÀNH XUẤT SẮC!</strong> Sau <strong>${state.weighCount} lần cân</strong>, bé đã tách ra được bao gạo đúng <strong>${lvl.targetKg}kg</strong> ngay trên mặt bàn!`); showVictoryModal(lvl, state.weighCount); }
+      else { state.currentStep = 3; playSound('balance'); setCoachMessage(`✅ <strong>Xong Cân Lần 1!</strong> Ngay dưới mặt bàn giờ đã có các bao gạo: <strong>${bagSnapshot}</strong>. Sang <strong>Bước 3 (Cân Lần 2)</strong>: Bé hãy nhấc lên đĩa cân để lấy ra đúng <strong>${lvl.targetKg}kg gạo</strong> nhé!`); }
+      renderAll();
+    }
+
+    function showVictoryModal(lvl, count) {
+      const modal = document.getElementById('victoryModal');
+      document.getElementById('victoryMessage').innerHTML = `Qua các thao tác thực nghiệm trên bàn cân Robecvan, bé đã lấy ra được đúng <strong>${lvl.targetKg}kg gạo</strong> sau <strong>${count} lần cân</strong>!`;
+      document.getElementById('victoryFormula').innerHTML = state.history.map((h) => `<div>✔ ${h.summary}</div>`).join('');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
+    }
+    function setCoachMessage(html) { document.getElementById('coachText').innerHTML = html; }
+
+    // ───── WORD PROBLEM RENDERING ─────
+    function renderWordProblem() {
+      const lvl = LEVELS[currentLevelIdx];
+      if (lvl.mode !== 'word') return;
+      const w = state.word;
+      document.getElementById('wordProblemText').innerHTML = lvl.problemText;
+      document.getElementById('wordSummaryDiagram').innerHTML = lvl.summaryDiagram;
+      if (!w.showSummary) document.getElementById('wordSummaryDiagram').style.display = 'none';
+      else document.getElementById('wordSummaryDiagram').style.display = '';
+
+      const subStep = lvl.subSteps[w.subStepIndex];
+      const stepNum = w.subStepIndex + 1;
+      const totalSteps = lvl.subSteps.length;
+
+      const fb = document.getElementById('wordFeedback'); fb.classList.add('hidden');
+      const solBox = document.getElementById('wordSolutionBox'); solBox.classList.add('hidden'); solBox.innerHTML = '';
+
+      if (w.solvedSubSteps[w.subStepIndex]) {
+        document.getElementById('wordStepIndicator').innerHTML = `✅ <strong>Bước ${stepNum}/${totalSteps} đã xong!</strong> Chuyển sang bước tiếp theo...`;
+        document.getElementById('wordOpButtons').innerHTML = '';
+        document.getElementById('wordNum1').value = '';
+        document.getElementById('wordNum2').value = '';
+        document.getElementById('wordNum3').value = '';
+        document.getElementById('wordNum1').disabled = true;
+        document.getElementById('wordNum2').disabled = true;
+        document.getElementById('wordNum3').disabled = true;
+        document.getElementById('btnWordCheck').disabled = true;
+        return;
+      }
+      document.getElementById('wordNum1').disabled = false;
+      document.getElementById('wordNum2').disabled = false;
+      document.getElementById('wordNum3').disabled = false;
+      document.getElementById('btnWordCheck').disabled = false;
+
+      const stepLabel = totalSteps > 1 ? `Bước ${stepNum}/${totalSteps}: ` : '';
+      document.getElementById('wordStepIndicator').innerHTML = `👉 ${stepLabel}<strong>${subStep.question}</strong>`;
+
+      const ops = [
+        { id: '+', label: '+', base: 'border-blue-400 bg-blue-50 text-blue-800 hover:bg-blue-100', active: 'ring-4 ring-blue-400 ring-offset-2' },
+        { id: '-', label: '−', base: 'border-rose-400 bg-rose-50 text-rose-800 hover:bg-rose-100', active: 'ring-4 ring-rose-400 ring-offset-2' }
+      ];
+      const opContainer = document.getElementById('wordOpButtons');
+      opContainer.innerHTML = ops.map((op) => {
+        const isActive = w.currentOp === op.id;
+        return `<button class="op-btn py-3 rounded-xl border-2 ${op.base} ${isActive ? op.active : ''} font-extrabold text-2xl" data-op="${op.id}">${op.label}</button>`;
+      }).join('');
+      opContainer.querySelectorAll('[data-op]').forEach((btn) => {
+        btn.onclick = () => { w.currentOp = btn.dataset.op; document.getElementById('wordOpSymbol').textContent = w.currentOp; renderWordProblem(); };
+      });
+
+      document.getElementById('wordNum1').value = w.num1;
+      document.getElementById('wordNum2').value = w.num2;
+      document.getElementById('wordNum3').value = w.currentAnswer;
+      document.getElementById('wordOpSymbol').textContent = w.currentOp || '+';
+      document.getElementById('wordUnitLabel').textContent = subStep.unit;
+    }
+
+    function checkWordAnswer() {
+      const lvl = LEVELS[currentLevelIdx];
+      const w = state.word;
+      const subStep = lvl.subSteps[w.subStepIndex];
+      const fb = document.getElementById('wordFeedback');
+      const v1 = parseFloat(document.getElementById('wordNum1').value);
+      const v2 = parseFloat(document.getElementById('wordNum2').value);
+      const v3 = parseFloat(document.getElementById('wordNum3').value);
+      
+      if (!w.currentOp) { fb.className = 'p-3 rounded-xl font-bold text-sm bg-amber-50 text-amber-800 border-2 border-amber-300'; fb.textContent = '⚠️ Bé chưa chọn phép tính! Hãy chọn + hoặc − ở trên.'; fb.classList.remove('hidden'); return; }
+      if (isNaN(v1) || isNaN(v2) || isNaN(v3)) { fb.className = 'p-3 rounded-xl font-bold text-sm bg-amber-50 text-amber-800 border-2 border-amber-300'; fb.textContent = '⚠️ Bé chưa điền đủ 3 ô số! Hãy điền đầy đủ.'; fb.classList.remove('hidden'); return; }
+
+      const opCorrect = w.currentOp === subStep.correctOp;
+      const partsCorrect = (v1 === subStep.num1 && v2 === subStep.num2 && v3 === subStep.correctAnswer);
+
+      if (opCorrect && partsCorrect) {
+        playSound('balance');
+        fb.className = 'p-3 rounded-xl font-bold text-sm bg-emerald-50 text-emerald-800 border-2 border-emerald-400';
+        fb.innerHTML = `🎉 <strong>Chính xác!</strong> ${subStep.solutionText}`;
+        fb.classList.remove('hidden');
+        w.solvedSubSteps[w.subStepIndex] = true;
+        if (w.subStepIndex < lvl.subSteps.length - 1) {
+          setTimeout(() => { 
+            w.subStepIndex++; w.currentOp = null; w.num1 = ''; w.num2 = ''; w.currentAnswer = ''; 
+            renderWordProblem(); 
+            setCoachMessage(`✅ Bước ${w.subStepIndex} xong! Bé làm tiếp bước ${w.subStepIndex + 1}.`); 
+          }, 1500);
+        } else {
+          state.won = true; playSound('win');
+          setTimeout(() => showWordVictory(lvl), 1200);
+        }
+      } else if (!opCorrect) {
+        playSound('wrong');
+        fb.className = 'p-3 rounded-xl font-bold text-sm bg-rose-50 text-rose-800 border-2 border-rose-400';
+        fb.innerHTML = `❌ <strong>Phép tính chưa đúng.</strong> Bé đọc lại đề xem: <em>"nhiều hơn"</em> hoặc <em>"thêm vào"</em> thì phải làm phép gì?`;
+        fb.classList.remove('hidden');
+      } else {
+        playSound('wrong');
+        fb.className = 'p-3 rounded-xl font-bold text-sm bg-rose-50 text-rose-800 border-2 border-rose-400';
+        fb.innerHTML = `❌ <strong>Các số chưa đúng.</strong> Bé kiểm tra lại các số hạng và kết quả. Gợi ý phép tính: <code class="bg-rose-100 px-2 py-0.5 rounded font-mono">${subStep.calcHint}</code>`;
+        fb.classList.remove('hidden');
+      }
+    }
+
+    function showWordSolution() {
+      const lvl = LEVELS[currentLevelIdx];
+      if (lvl.mode !== 'word') return;
+      const solBox = document.getElementById('wordSolutionBox');
+      solBox.classList.remove('hidden');
+      solBox.innerHTML = `
+        ${lvl.solutionTable}
+        <div class="mt-4 text-xs text-slate-500 italic font-semibold">👉 Bé hãy tự điền đáp số vào ô bên trên để hoàn thành bài giải nhé!</div>
+      `;
+      playSound('clink');
+    }
+
+    function showWordVictory(lvl) {
+      const modal = document.getElementById('victoryModal');
+      document.getElementById('victoryMessage').innerHTML = `Bé đã giải đúng toàn bộ bài toán có lời văn! Hoàn thành xuất sắc!`;
+      document.getElementById('victoryFormula').innerHTML = lvl.subSteps.map((s, i) => `<div>✓ Bước ${i + 1}: ${s.solutionText}</div>`).join('');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
+    }
+
+    let demoTimer = null;
+    function runAutomatedDemo(methodNum) {
+      if (demoTimer) clearTimeout(demoTimer);
+      switchView('play');
+      initLevel(0);
+      autoCompleteStep1();
+      goToStep(2);
+      if (methodNum === 1) {
+        setCoachMessage('🎬 <strong>Làm mẫu CÁCH 1 (5 - 2 = 3, rồi 3 - 2 = 1):</strong> Quan sát kim cân và đòn cân nhé!');
+        demoTimer = setTimeout(() => {
+          handleItemDropOnTarget({ type: 'weight', id: 'w_0' }, 'left');
+          demoTimer = setTimeout(() => {
+            handleItemDropOnTarget({ type: 'bag', id: 'bag_1' }, 'right');
+            demoTimer = setTimeout(() => {
+              handleItemDropOnTarget({ type: 'bag', id: 'bag_1' }, 'right');
+              demoTimer = setTimeout(() => {
+                commitWeighing();
+                demoTimer = setTimeout(() => {
+                  handleItemDropOnTarget({ type: 'weight', id: 'w_0' }, 'left');
+                  const bag3 = state.bags.find((b) => b.kg === 3);
+                  if (bag3) { demoTimer = setTimeout(() => { handleItemDropOnTarget({ type: 'bag', id: bag3.id }, 'right'); demoTimer = setTimeout(() => { handleItemDropOnTarget({ type: 'bag', id: bag3.id }, 'right'); demoTimer = setTimeout(() => { commitWeighing(); }, 1250); }, 1050); }, 1050); }
+                }, 1250);
+              }, 1250);
+            }, 1050);
+          }, 1050);
+        }, 650);
+      } else {
+        setCoachMessage('🎬 <strong>Làm mẫu CÁCH 2 (Đong 2kg rồi chia đôi 2 = 1 + 1):</strong>');
+        demoTimer = setTimeout(() => {
+          handleItemDropOnTarget({ type: 'weight', id: 'w_0' }, 'left');
+          demoTimer = setTimeout(() => {
+            handleItemDropOnTarget({ type: 'bag', id: 'bag_1' }, 'right');
+            demoTimer = setTimeout(() => {
+              handleItemDropOnTarget({ type: 'bag', id: 'bag_1' }, 'right');
+              demoTimer = setTimeout(() => {
+                commitWeighing();
+                demoTimer = setTimeout(() => {
+                  const bag2 = state.bags.find((b) => b.kg === 2);
+                  if (bag2) { state.selectedBagId = bag2.id; handleItemDropOnTarget({ type: 'bag', id: bag2.id }, 'left'); demoTimer = setTimeout(() => { handleItemDropOnTarget({ type: 'bag', id: bag2.id }, 'right'); demoTimer = setTimeout(() => { commitWeighing(); }, 1250); }, 1050); }
+                }, 1250);
+              }, 1250);
+            }, 1050);
+          }, 1050);
+        }, 650);
+      }
+    }
+
+    function renderPanItemsSvg(panSide) {
+      const container = document.getElementById(panSide === 'left' ? 'svgLeftItems' : 'svgRightItems');
+      if (!container) return; container.innerHTML = '';
+      let offsetX = -46;
+      state.weights.filter((w) => w.location === panSide).forEach((w) => {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('transform', `translate(${offsetX}, -54)`); g.setAttribute('class', 'cursor-grab');
+        g.innerHTML = `<circle cx="26" cy="8" r="6" fill="none" stroke="#94a3b8" stroke-width="3.5" /><rect x="19" y="12" width="14" height="5" rx="2" fill="#475569" /><path d="M 10 17 L 42 17 L 48 54 Q 26 58 4 54 Z" fill="url(#ironWeightGrad)" stroke="#cbd5e1" stroke-width="1.2" /><rect x="12" y="29" width="28" height="16" rx="4" fill="#0f172a" stroke="#fbbf24" stroke-width="1.2" /><text x="26" y="41" text-anchor="middle" font-size="10.5" font-weight="900" fill="#fde047">${w.kg}kg</text>`;
+        attachDragBehavior(g, { type: 'weight', id: w.id }, `Quả cân ${w.kg}kg`, '🏋️');
+        container.appendChild(g); offsetX += 46;
+      });
+      state.bags.filter((b) => b.location === panSide).forEach((b) => {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('transform', `translate(${offsetX}, -56)`); g.setAttribute('class', 'cursor-grab');
+        const label = xrayMode ? `${b.kg}kg` : '?kg';
+        g.innerHTML = `<path d="M 14 8 Q 26 15 38 8 L 33 17 L 19 17 Z" fill="#b45309" /><path d="M 16 10 Q 26 2 36 10 Z" fill="#ffffff" /><path d="M 17 16 C 4 24, 4 48, 12 54 C 20 58, 32 58, 40 54 C 48 48, 48 24, 35 16 Z" fill="url(#burlapGrad)" stroke="#78350f" stroke-width="1.5" /><rect x="16" y="15" width="20" height="4" rx="2" fill="#dc2626" /><rect x="12" y="28" width="28" height="16" rx="4" fill="#fffbeb" stroke="#92400e" stroke-width="1" /><text x="26" y="39" text-anchor="middle" font-size="10" font-weight="900" fill="#78350f">${label}</text>`;
+        attachDragBehavior(g, { type: 'bag', id: b.id }, b.name, '🌾');
+        container.appendChild(g); offsetX += 46;
+      });
+      const looseKg = panSide === 'left' ? state.leftLooseRice : state.rightLooseRice;
+      if (looseKg > 0) {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const moundH = Math.min(54, 18 + looseKg * 7.5);
+        const moundX = offsetX === -46 ? -36 : offsetX - 4;
+        g.setAttribute('transform', `translate(${moundX}, ${-moundH})`); g.setAttribute('class', 'cursor-grab');
+        const label = xrayMode ? `${looseKg} kg gạo` : `Đống gạo`;
+        g.innerHTML = `<path d="M -14 ${moundH} Q 36 ${-moundH * 0.35} 86 ${moundH} Z" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" /><path d="M -6 ${moundH} Q 36 ${-moundH * 0.15} 78 ${moundH} Z" fill="#f8fafc" /><ellipse cx="22" cy="${moundH * 0.45}" rx="3.5" ry="1.8" fill="#e2e8f0" transform="rotate(-15 22 ${moundH * 0.45})" /><ellipse cx="38" cy="${moundH * 0.3}" rx="3.5" ry="1.8" fill="#e2e8f0" transform="rotate(12 38 ${moundH * 0.3})" /><ellipse cx="50" cy="${moundH * 0.5}" rx="3.5" ry="1.8" fill="#e2e8f0" transform="rotate(-8 50 ${moundH * 0.5})" /><rect x="8" y="${moundH - 20}" width="56" height="17" rx="6" fill="#0f172a" opacity="0.88" stroke="#fde047" stroke-width="1" /><text x="36" y="${moundH - 8}" text-anchor="middle" font-size="10" font-weight="900" fill="#fde047">${label}</text>`;
+        attachDragBehavior(g, { type: 'panRice', side: panSide }, `${looseKg}kg gạo trên đĩa`, '🍚');
+        container.appendChild(g);
+      }
+    }
+
+    function renderStepNavigation() {
+      const s1 = document.getElementById('stepNav1'); const s2 = document.getElementById('stepNav2'); const s3 = document.getElementById('stepNav3');
+      const activeClass = 'px-2 py-1 rounded-lg text-[10px] sm:text-xs font-extrabold transition bg-amber-400 text-slate-900 shadow';
+      const idleClass = 'px-2 py-1 rounded-lg text-[10px] sm:text-xs font-extrabold transition text-white/80 hover:bg-white/10';
+      s1.className = state.currentStep === 1 ? activeClass : idleClass;
+      s2.className = state.currentStep === 2 ? activeClass : idleClass;
+      s3.className = state.currentStep === 3 ? activeClass : idleClass;
+      const sec1 = document.getElementById('step1Section'); const secWeigh = document.getElementById('stepWeighSection');
+      if (state.currentStep === 1) { sec1.classList.remove('hidden'); secWeigh.classList.add('hidden'); }
+      else { sec1.classList.add('hidden'); secWeigh.classList.remove('hidden'); }
+    }
+
+    function renderWaterStageUI(lvl) {
+      const capBig = lvl.capBig || 5;
+      const capSmall = lvl.capSmall || 3;
+      document.getElementById('weighCount').textContent = state.weighCount;
+
+      document.getElementById('jug3TitleLabel').textContent = `CAN ${capSmall} LÍT`;
+      const mark1 = document.getElementById('jugSmallMark1');
+      const mark2 = document.getElementById('jugSmallMark2');
+      if (capSmall === 3) {
+        mark1.style.display = ''; mark1.textContent = '2L -';
+        mark2.style.display = ''; mark2.textContent = '1L -';
+      } else if (capSmall === 2) {
+        mark1.style.display = 'none';
+        mark2.style.display = ''; mark2.textContent = '1L -';
+      }
+
+      const stepBadge = document.getElementById('currentWeighStepBadge');
+      const stepBanner = document.getElementById('stepInstructionText');
+      const statusPill = document.getElementById('scaleStatusPill');
+      const statusText = document.getElementById('scaleStatusText');
+
+      if (!state.waterMilestone2L) {
+        stepBadge.textContent = `BƯỚC 2: ĐONG NƯỚC LẦN 1 (Tìm ${capSmall} lít)`;
+        stepBadge.className = 'px-3 py-1 rounded-full bg-sky-600 text-white text-xs font-extrabold';
+        stepBanner.innerHTML = `👉 <strong>Kéo thả:</strong> Kéo <strong>Vòi nước</strong> sang <strong>Can 5 Lít</strong> để bơm đầy, rồi kéo <strong>Can 5 Lít</strong> rót sang <strong>Can ${capSmall} Lít</strong>!`;
+      } else {
+        stepBadge.textContent = `BƯỚC 3: ĐONG NƯỚC LẦN 2 (Tìm ${lvl.targetKg} lít)`;
+        stepBadge.className = 'px-3 py-1 rounded-full bg-purple-600 text-white text-xs font-extrabold';
+        stepBanner.innerHTML = `👉 <strong>Bước 3:</strong> Kéo <strong>Can ${capSmall} Lít</strong> vào <strong>Chậu</strong> để đổ bỏ → Kéo <strong>Can 5 Lít</strong> rót sang <strong>Can ${capSmall} Lít</strong> → Bơm đầy Can 5 Lít rồi rót thêm 1L!`;
+      }
+
+      statusPill.className = 'px-3 py-1 rounded-full text-xs font-extrabold bg-sky-100 text-sky-900 border border-sky-300 flex items-center gap-1';
+      statusText.textContent = `Can ${capBig}L: ${state.jugBig} lít | Can ${capSmall}L: ${state.jugSmall} lít`;
+
+      const pct5 = Math.min(100, Math.round((state.jugBig / capBig) * 100));
+      const pct3 = Math.min(100, Math.round((state.jugSmall / capSmall) * 100));
+      document.getElementById('jug5WaterFill').style.height = pct5 + '%';
+      document.getElementById('jug3WaterFill').style.height = pct3 + '%';
+      document.getElementById('jug5LiterText').textContent = xrayMode ? `${state.jugBig} / ${capBig} Lít` : `${state.jugBig > 0 ? 'Có nước' : '0 Lít'}`;
+      document.getElementById('jug3LiterText').textContent = xrayMode ? `${state.jugSmall} / ${capSmall} Lít` : `${state.jugSmall > 0 ? 'Có nước' : '0 Lít'}`;
+      document.getElementById('jug5EmptySpaceBadge').textContent = `Trống: ${capBig - state.jugBig}L`;
+      document.getElementById('jug3EmptySpaceBadge').textContent = `Trống: ${capSmall - state.jugSmall}L`;
+      document.getElementById('waterMathEquation').innerHTML = `Trạng thái: <strong class="text-blue-800">Can ${capBig}L có ${state.jugBig} lít</strong> (trống ${capBig - state.jugBig}L) • <strong class="text-cyan-800">Can ${capSmall}L có ${state.jugSmall} lít</strong> (trống ${capSmall - state.jugSmall}L)`;
+
+      const hList = document.getElementById('historyList');
+      if (state.history.length === 0) hList.innerHTML = `<div class="italic text-slate-400">Chưa có thao tác đong nước nào.</div>`;
+      else hList.innerHTML = state.history.map((h) => `<div class="text-sky-900 font-medium">💧 ${h.summary}</div>`).join('');
+    }
+
+    function renderWeighingStage() {
+      const lvl = LEVELS[currentLevelIdx];
+      const scaleWrap = document.getElementById('scaleStageWrap');
+      const waterWrap = document.getElementById('waterStageWrap');
+      if (lvl.mode === 'water') { scaleWrap.classList.add('hidden'); waterWrap.classList.remove('hidden'); renderWaterStageUI(lvl); return; }
+      else { scaleWrap.classList.remove('hidden'); waterWrap.classList.add('hidden'); }
+
+      const { leftKg, rightKg } = getPanTotals();
+      document.getElementById('weighCount').textContent = state.weighCount;
+      const stepBadge = document.getElementById('currentWeighStepBadge');
+      const stepBanner = document.getElementById('stepInstructionText');
+      if (state.weighCount === 0) {
+        stepBadge.textContent = 'BƯỚC 2: CÂN LẦN 1';
+        stepBadge.className = 'px-3 py-1 rounded-full bg-sky-600 text-white text-xs font-extrabold shadow-sm';
+        stepBanner.innerHTML = `👉 <strong>Kéo thả:</strong> Cầm <strong>${lvl.weights.length > 0 ? `Quả cân ${lvl.weights[0]}kg` : 'Bao gạo'}</strong> (dưới gầm đĩa cân) nhấc lên <strong>Đĩa Trái</strong>, rồi nhấc <strong>Bao gạo ${lvl.initialBagKg}kg</strong> lên <strong>Đĩa Phải</strong> cho đến khi kim chỉ đúng số <strong>0</strong>!`;
+      } else {
+        stepBadge.textContent = `BƯỚC 3: CÂN LẦN ${state.weighCount + 1} (Tìm ${lvl.targetKg}kg gạo)`;
+        stepBadge.className = 'px-3 py-1 rounded-full bg-purple-600 text-white text-xs font-extrabold shadow-sm';
+        stepBanner.innerHTML = `👉 <strong>Bước 3 (Cân Lần 2):</strong> Các bao gạo mới đã nằm ngay trên mặt bàn dưới đĩa cân! Bé hãy nhấc lên đĩa cân để tách ra đúng <strong>${lvl.targetKg}kg gạo</strong> nhé!`;
+      }
+      const diff = rightKg - leftKg;
+      const angle = Math.max(-15, Math.min(15, diff * 4.5));
+      const beam = document.getElementById('svgBeamGroup'); const leftPan = document.getElementById('svgLeftPan'); const rightPan = document.getElementById('svgRightPan');
+      beam.style.transform = `rotate(${angle}deg)`; leftPan.style.transform = `translate(160px, 130px) rotate(${-angle}deg)`; rightPan.style.transform = `translate(540px, 130px) rotate(${-angle}deg)`;
+      document.getElementById('svgLeftLabel').textContent = xrayMode ? `ĐĨA TRÁI: ${leftKg} kg` : `ĐĨA TRÁI`;
+      document.getElementById('svgRightLabel').textContent = xrayMode ? `ĐĨA PHẢI: ${rightKg} kg` : `ĐĨA PHẢI`;
+      const leftHTag = document.getElementById('svgLeftHeightTag'); const rightHTag = document.getElementById('svgRightHeightTag');
+      const heightDiffLabel = document.getElementById('heightDiffLabel'); const signEl = document.getElementById('svgSignText');
+      const statusPill = document.getElementById('scaleStatusPill'); const statusText = document.getElementById('scaleStatusText'); const eqBox = document.getElementById('mathEquationBox');
+      if (leftKg === rightKg) {
+        signEl.textContent = '=';
+        leftHTag.textContent = leftKg > 0 ? '✓ Ngang bằng' : ''; rightHTag.textContent = rightKg > 0 ? '✓ Ngang bằng' : '';
+        heightDiffLabel.textContent = leftKg > 0 ? `Kim chỉ đúng số 0: Hai đĩa cân cao bằng nhau (${leftKg}kg = ${rightKg}kg)` : 'Kim chỉ số 0 — Vạch chuẩn thăng bằng';
+        statusPill.className = 'px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1';
+        statusText.textContent = leftKg > 0 ? `Cân THĂNG BẰNG! (${leftKg} kg = ${rightKg} kg)` : 'Cân đang thăng bằng (0 kg = 0 kg)';
+      } else if (leftKg > rightKg) {
+        signEl.textContent = '>'; leftHTag.textContent = '⬇ Hạ thấp (Nặng hơn)'; rightHTag.textContent = '⬆ Nâng cao (Nhẹ hơn)';
+        heightDiffLabel.textContent = `Kim nghiêng Trái: Đĩa Trái nặng hơn Đĩa Phải ${roundKg(leftKg - rightKg)}kg`;
+        statusPill.className = 'px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1';
+        statusText.textContent = `Lệch Trái: Đĩa Trái (${leftKg}kg) nặng hơn Đĩa Phải (${rightKg}kg)`;
+      } else {
+        signEl.textContent = '<'; leftHTag.textContent = '⬆ Nâng cao (Nhẹ hơn)'; rightHTag.textContent = '⬇ Hạ thấp (Nặng hơn)';
+        heightDiffLabel.textContent = `Kim nghiêng Phải: Đĩa Phải nặng hơn Đĩa Trái ${roundKg(rightKg - leftKg)}kg`;
+        statusPill.className = 'px-3 py-1 rounded-full text-xs font-extrabold bg-sky-100 text-sky-800 border border-sky-300 flex items-center gap-1';
+        statusText.textContent = `Lệch Phải: Đĩa Phải (${rightKg}kg) nặng hơn Đĩa Trái (${leftKg}kg)`;
+      }
+      eqBox.innerHTML = `Đĩa Trái (<strong>${leftKg}kg</strong>) ${leftKg === rightKg ? '=' : leftKg > rightKg ? 'lớn hơn' : 'nhỏ hơn'} Đĩa Phải (<strong>${rightKg}kg</strong>)`;
+      renderPanItemsSvg('left'); renderPanItemsSvg('right');
+      const selBag = getSelectedBag();
+      document.getElementById('activeBagIndicator').textContent = selBag ? `Bao đang mở: ${selBag.name}` : 'Chưa chọn bao gạo';
+
+      const wContainer = document.getElementById('weightsContainer'); wContainer.innerHTML = '';
+      if (state.weights.length === 0) wContainer.innerHTML = `<div class="text-xs text-amber-200/70 italic px-2">Bài này không dùng quả cân sắt.</div>`;
+      else state.weights.forEach((w) => {
+        const card = document.createElement('div'); const onPan = w.location !== 'table';
+        card.className = `draggable-item px-3 py-2 rounded-2xl border-2 transition flex items-center gap-2.5 ${onPan ? 'border-amber-500/40 bg-stone-800/80 opacity-85' : 'border-amber-400 bg-gradient-to-b from-stone-700 to-stone-900 shadow-lg'}`;
+        const locText = w.location === 'left' ? 'Đang ở Đĩa Trái (Bấm để đổi)' : w.location === 'right' ? 'Đang ở Đĩa Phải (Bấm để hạ)' : '⬆️ Kéo lên Đĩa Trái ngay trên!';
+        card.innerHTML = `${getRealisticIronWeightSvg(w.kg, 'w-14 h-14 shrink-0')}<div class="text-left"><div class="text-xs font-black text-amber-300">Quả cân gang ${w.kg}kg</div><div class="text-[11px] text-stone-300 font-semibold">${locText}</div></div>`;
+        attachDragBehavior(card, { type: 'weight', id: w.id }, `Quả cân ${w.kg}kg`, '🏋️'); wContainer.appendChild(card);
+      });
+
+      const bContainer = document.getElementById('bagsContainer'); bContainer.innerHTML = '';
+      state.bags.forEach((b) => {
+        const isSelected = selBag && selBag.id === b.id;
+        const isTargetMatch = Math.abs(b.kg - lvl.targetKg) < 0.02 && b.location === 'table';
+        const sizeCls = b.kg >= 4 ? 'w-16 h-16' : b.kg >= 2 ? 'w-14 h-14' : 'w-12 h-12';
+        const kgText = xrayMode ? `${b.kg}kg` : `?kg`;
+        const card = document.createElement('div');
+        card.className = `draggable-item px-3 py-2 rounded-2xl border-2 transition flex items-center gap-2.5 ${isTargetMatch ? 'border-emerald-400 bg-emerald-950/90 shadow-lg ring-2 ring-emerald-400' : isSelected ? 'border-amber-400 bg-amber-950/90 shadow-lg' : 'border-stone-600 bg-stone-800/90'}`;
+        card.innerHTML = `${getRealisticRiceSackSvg(kgText, sizeCls + ' shrink-0', isTargetMatch)}<div class="text-left space-y-1"><div class="text-xs font-black text-white flex items-center gap-1.5"><span>${b.name}</span>${isTargetMatch ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 text-[10px] font-black">🎯 ĐÚNG!</span>' : ''}</div><div class="text-[11px] text-amber-300 font-semibold">⬆️ Kéo lên đĩa để đổ 1kg</div><div class="flex items-center gap-1 pt-0.5"><button data-no-drag="true" data-act="pourRight" class="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[10px] transition">+1kg Đĩa Phải</button><button data-no-drag="true" data-act="putWholeLeft" class="px-2 py-0.5 rounded bg-sky-500/30 hover:bg-sky-500/50 text-sky-200 border border-sky-400/40 font-bold text-[10px] transition">${b.location === 'left' ? 'Hạ khỏi Đĩa Trái' : 'Đặt cả bao lên Trái'}</button></div></div>`;
+        attachDragBehavior(card, { type: 'bag', id: b.id }, `${b.name} (Đổ 1kg)`, '🌾');
+        card.querySelector('[data-act="pourRight"]').addEventListener('click', () => handleItemDropOnTarget({ type: 'bag', id: b.id }, 'right'));
+        card.querySelector('[data-act="putWholeLeft"]').addEventListener('click', () => { b.location = b.location === 'left' ? 'table' : 'left'; playSound('clink'); renderAll(); });
+        bContainer.appendChild(card);
+      });
+
+      const hList = document.getElementById('historyList');
+      if (state.history.length === 0) hList.innerHTML = `<div class="italic text-slate-400">Khi kim cân chỉ đúng vạch số 0 ở giữa, bé bấm "Chốt Lần Cân Này" nhé!</div>`;
+      else hList.innerHTML = state.history.map((h) => `<div class="text-emerald-800 font-semibold">✅ ${h.summary}</div>`).join('');
+    }
+
+    function renderAll() {
+      const lvl = LEVELS[currentLevelIdx];
+      if (lvl.mode === 'word') {
+        document.getElementById('step1Section').classList.add('hidden');
+        document.getElementById('stepWeighSection').classList.add('hidden');
+        document.getElementById('stepWordSection').classList.remove('hidden');
+        const stepNavBar = document.getElementById('stepNavBar');
+        if (stepNavBar) stepNavBar.classList.add('hidden');
+        renderWordProblem();
+      } else {
+        document.getElementById('stepWordSection').classList.add('hidden');
+        const stepNavBar = document.getElementById('stepNavBar');
+        if (stepNavBar) stepNavBar.classList.remove('hidden');
+        renderStepNavigation();
+        renderStep1();
+        renderWeighingStage();
+      }
+    }
+
+    function switchView(viewName) {
+      const vPlay = document.getElementById('viewPlay'); const vGuide = document.getElementById('viewGuide');
+      const btnPlay = document.getElementById('btnTabPlay'); const btnGuide = document.getElementById('btnTabGuide');
+      if (viewName === 'play') {
+        vPlay.classList.remove('hidden'); vGuide.classList.add('hidden');
+        if(btnPlay) btnPlay.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-600 text-white shadow-sm transition';
+        if(btnGuide) btnGuide.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 hover:bg-purple-200 transition';
+      } else {
+        vPlay.classList.add('hidden'); vGuide.classList.remove('hidden');
+        if(btnGuide) btnGuide.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 text-white shadow-sm transition';
+        if(btnPlay) btnPlay.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200 hover:bg-sky-200 transition';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Đổi dạng bài
+      document.getElementById('btnOpenLevels').addEventListener('click', () => {
+        const grid = document.getElementById('levelListGrid');
+        grid.innerHTML = LEVELS.map((lvl, idx) => {
+          const emoji = lvl.mode === 'water' ? '💧' : (lvl.mode === 'word' ? '📚' : (idx === 0 ? '🌟' : idx === 1 ? '🎯' : '🚀'));
+          const label = lvl.mode === 'water' ? `Đong ${lvl.targetKg}L` : lvl.mode === 'word' ? `Bài toán ngày ${idx - 4}` : `Bài ${idx + 1}`;
+          return `<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-amber-400 bg-slate-50 font-bold text-slate-700 text-sm transition flex items-center gap-2" onclick="initLevel(${idx}); document.getElementById('levelSelectModal').classList.add('hidden'); document.getElementById('levelSelectModal').classList.remove('flex'); switchView('play');">
+            <span class="text-lg">${emoji}</span> <span>${label}</span>
+          </button>`;
+        }).join('');
+        document.getElementById('levelSelectModal').classList.remove('hidden');
+        document.getElementById('levelSelectModal').classList.add('flex');
+      });
+      document.getElementById('btnCloseLevels').addEventListener('click', () => {
+        document.getElementById('levelSelectModal').classList.add('hidden');
+        document.getElementById('levelSelectModal').classList.remove('flex');
+      });
+
+      document.getElementById('stepNav1').addEventListener('click', () => goToStep(1));
+      document.getElementById('stepNav2').addEventListener('click', () => goToStep(2));
+      document.getElementById('stepNav3').addEventListener('click', () => goToStep(3));
+      document.getElementById('btnAutoSelectStep1').addEventListener('click', autoCompleteStep1);
+      document.getElementById('btnGoToStep2').addEventListener('click', () => goToStep(2));
+      document.getElementById('btnAddLeft1').addEventListener('click', () => addStepRice('left', 1));
+      document.getElementById('btnAddRight1').addEventListener('click', () => addStepRice('right', 1));
+      document.getElementById('btnPourRight').addEventListener('click', () => pourToBalance('right'));
+      document.getElementById('btnSplitEven').addEventListener('click', () => splitRiceEvenly());
+      document.getElementById('btnClearScale').addEventListener('click', () => clearScaleToTable());
+      document.getElementById('btnCommitWeigh').addEventListener('click', () => commitWeighing());
+      document.getElementById('btnReset').addEventListener('click', () => initLevel(currentLevelIdx));
+      document.getElementById('btnSmartHint').addEventListener('click', () => {
+        const lvl = LEVELS[currentLevelIdx];
+        if (lvl.mode === 'word') { showWordSolution(); return; }
+        const stepIdx = Math.min(state.weighCount, lvl.hintSteps.length - 1);
+        setCoachMessage('💡 <strong>Gợi ý cho bé:</strong> ' + lvl.hintSteps[stepIdx]);
+      });
+      document.getElementById('btnDemoMethod1').addEventListener('click', () => runAutomatedDemo(1));
+      document.getElementById('btnDemoMethod2').addEventListener('click', () => runAutomatedDemo(2));
+      document.getElementById('btnToggleXray').addEventListener('click', () => { xrayMode = !xrayMode; document.getElementById('xrayLabel').textContent = xrayMode ? 'Hiện số kg: BẬT' : 'Hiện số kg: TẮT'; renderAll(); });
+      document.getElementById('btnToggleSound').addEventListener('click', () => { soundEnabled = !soundEnabled; document.getElementById('soundIcon').textContent = soundEnabled ? '🔊' : '🔇'; });
+      document.getElementById('btnCloseVictory').addEventListener('click', () => { const modal = document.getElementById('victoryModal'); modal.classList.add('hidden'); modal.classList.remove('flex'); });
+      document.getElementById('btnNextLevelModal').addEventListener('click', () => { const modal = document.getElementById('victoryModal'); modal.classList.add('hidden'); modal.classList.remove('flex'); initLevel((currentLevelIdx + 1) % LEVELS.length); });
+
+      document.getElementById('btnWordCheck').addEventListener('click', checkWordAnswer);
+      document.getElementById('btnWordSolution').addEventListener('click', showWordSolution);
+      document.getElementById('wordNum1').addEventListener('input', (e) => { if (state.word) state.word.num1 = e.target.value; });
+      document.getElementById('wordNum2').addEventListener('input', (e) => { if (state.word) state.word.num2 = e.target.value; });
+      document.getElementById('wordNum3').addEventListener('input', (e) => { if (state.word) state.word.currentAnswer = e.target.value; });
+      document.getElementById('btnToggleSummary').addEventListener('click', () => { if (state.word) { state.word.showSummary = !state.word.showSummary; document.getElementById('btnToggleSummary').textContent = state.word.showSummary ? '👁️ Ẩn' : '👁️ Hiện'; renderWordProblem(); } });
+
+      const customModal = document.getElementById('customModal');
+      const closeCustom = () => { customModal.classList.add('hidden'); customModal.classList.remove('flex'); };
+      document.getElementById('btnOpenCustom').addEventListener('click', () => { customModal.classList.remove('hidden'); customModal.classList.add('flex'); });
+      document.getElementById('btnCloseCustom').addEventListener('click', closeCustom);
+      document.getElementById('btnCancelCustom').addEventListener('click', closeCustom);
+      
+      // Toggle inputs in custom modal
+      document.getElementById('inputProblemType').addEventListener('change', (e) => {
+        const type = e.target.value;
+        document.getElementById('customWeighInputs').classList.toggle('hidden', type !== 'weigh');
+        document.getElementById('customWaterInputs').classList.toggle('hidden', type !== 'water');
+        document.getElementById('customWordInputs').classList.toggle('hidden', type !== 'word');
+      });
+
+      document.getElementById('btnSaveCustom').addEventListener('click', () => {
+        const type = document.getElementById('inputProblemType').value;
+        let newLevel = null;
+
+        if (type === 'weigh') {
+          const bagKg = Math.max(2, parseFloat(document.getElementById('inputBagKg').value) || 5);
+          const weightKg = Math.max(0, parseFloat(document.getElementById('inputWeightKg').value) || 0);
+          const targetKg = Math.max(0.5, parseFloat(document.getElementById('inputTargetKg').value) || 1);
+          newLevel = generateWeighLevel(bagKg, weightKg, targetKg);
+        } else if (type === 'water') {
+          const capBig = Math.max(2, parseFloat(document.getElementById('inputCapBig').value) || 5);
+          const capSmall = Math.max(1, parseFloat(document.getElementById('inputCapSmall').value) || 3);
+          const targetL = Math.max(1, parseFloat(document.getElementById('inputTargetL').value) || 4);
+          newLevel = generateWaterLevel(capBig, capSmall, targetL);
+        } else if (type === 'word') {
+          const num1 = parseInt(document.getElementById('inputWordNum1').value) || 24;
+          const num2 = parseInt(document.getElementById('inputWordNum2').value) || 9;
+          const unit = document.getElementById('inputWordUnit').value.trim() || 'bao gạo';
+          newLevel = generateWordLevel(num1, num2, unit);
+        }
+
+        if (newLevel) {
+          LEVELS.push(newLevel);
+          closeCustom();
+          switchView('play');
+          initLevel(LEVELS.length - 1);
+        }
+      });
+
+      const tapZone = document.getElementById('waterTapZone'); const jug5Zone = document.getElementById('waterJug5Zone'); const jug3Zone = document.getElementById('waterJug3Zone');
+      if (tapZone) attachDragBehavior(tapZone, { waterSource: 'tap' }, 'Vòi nước đồng', '🚰');
+      if (jug5Zone) attachDragBehavior(jug5Zone, { waterSource: 'jug5' }, 'Can 5 Lít', '🫙');
+      if (jug3Zone) attachDragBehavior(jug3Zone, { waterSource: 'jug3' }, 'Can nhỏ', '🫙');
+      document.getElementById('btnWaterFill5').addEventListener('click', () => performWaterAction('fillBig'));
+      document.getElementById('btnWaterFill3').addEventListener('click', () => performWaterAction('fillSmall'));
+      document.getElementById('btnWaterPour5to3').addEventListener('click', () => performWaterAction('pourBigToSmall'));
+      document.getElementById('btnWaterPour3to5').addEventListener('click', () => performWaterAction('pourSmallToBig'));
+      document.getElementById('btnWaterEmpty3').addEventListener('click', () => performWaterAction('emptySmall'));
+      document.getElementById('btnWaterEmpty5').addEventListener('click', () => performWaterAction('emptyBig'));
+      document.getElementById('btnDemoWater').addEventListener('click', () => {
+        if (demoTimer) clearTimeout(demoTimer);
+        switchView('play'); initLevel(3); autoCompleteStep1(); goToStep(2);
+        setCoachMessage('🎬 <strong>Đang làm mẫu bài toán Đong 4 Lít Nước:</strong>');
+        const actions = ['fillBig', 'pourBigToSmall', 'emptySmall', 'pourBigToSmall', 'fillBig', 'pourBigToSmall'];
+        actions.forEach((act, idx) => { setTimeout(() => { performWaterAction(act); }, (idx + 1) * 1200); });
+      });
+
+      initLevel(0);
+    });
+  </script>
+</body>
+</html>
